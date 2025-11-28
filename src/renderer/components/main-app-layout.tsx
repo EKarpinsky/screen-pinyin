@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Copy, Check, X, ArrowLeft, Clock, Settings } from 'lucide-react';
+import { Copy, Check, X, ArrowLeft, Clock, Settings, Search } from 'lucide-react';
 import { CharacterDetailPanel, CharacterData } from './character-detail-panel';
+import { SearchView } from './search-view';
 import hanziDictionary from '../../data/hanzi-dictionary.json';
 
 // Define HistoryItem type locally (not imported from preload to avoid sandbox issues)
@@ -12,7 +13,7 @@ interface HistoryItem {
   timestamp: number;
 }
 
-type ViewType = 'history' | 'settings' | 'results';
+type ViewType = 'history' | 'settings' | 'search' | 'results';
 
 interface ResultsData {
   original: string;
@@ -73,20 +74,29 @@ const AZURE_REGIONS = [
 ];
 
 export function MainAppLayout() {
+  console.log('[MainAppLayout] Rendering...');
   const [currentView, setCurrentView] = useState<ViewType>('history');
   const [resultsData, setResultsData] = useState<ResultsData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processError, setProcessError] = useState<string | null>(null);
+  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
+
+  console.log('[MainAppLayout] currentView:', currentView, 'isProcessing:', isProcessing);
 
   // Listen for new results from capture
   useEffect(() => {
+    console.log('[MainAppLayout] Setting up event listeners...');
+    
     const handleNewCapture = async () => {
+      console.log('[MainAppLayout] handleNewCapture called!');
       setIsProcessing(true);
       setProcessError(null);
       setCurrentView('results');
 
       try {
+        console.log('[MainAppLayout] Getting captured image...');
         const imageData = await window.electronAPI.getCapturedImage();
+        console.log('[MainAppLayout] Got image data:', imageData ? 'yes' : 'no');
         if (!imageData) {
           setProcessError('No captured image found');
           setIsProcessing(false);
@@ -163,6 +173,19 @@ export function MainAppLayout() {
     };
   }, []);
 
+  // Load history items (for SearchView)
+  useEffect(() => {
+    const loadHistory = async () => {
+      try {
+        const history = await window.electronAPI.getHistory();
+        setHistoryItems(history);
+      } catch (error) {
+        console.error('Failed to load history:', error);
+      }
+    };
+    loadHistory();
+  }, [currentView]); // Reload when view changes (in case history was updated)
+
   const handleHistoryItemClick = (item: HistoryItem) => {
     setResultsData({
       original: item.chinese,
@@ -176,6 +199,58 @@ export function MainAppLayout() {
     setResultsData(null);
     setProcessError(null);
     setCurrentView('history');
+  };
+
+  // Handle search item click
+  const handleSearchItemClick = (item: HistoryItem | { type: 'dictionary'; data: { character: string; pinyin: string[]; definition: string } }) => {
+    if ('type' in item && item.type === 'dictionary') {
+      // Dictionary entry clicked - show character detail panel
+      const charData = dictionary[item.data.character];
+      if (charData) {
+        setResultsData({
+          original: item.data.character,
+          pinyin: item.data.pinyin.join(', '),
+          translation: item.data.definition,
+        });
+        setCurrentView('results');
+      }
+    } else {
+      // History item clicked
+      handleHistoryItemClick(item as HistoryItem);
+    }
+  };
+
+  // Handle translate text from search
+  const handleTranslateText = async (text: string) => {
+    setIsProcessing(true);
+    setProcessError(null);
+    setCurrentView('results');
+
+    try {
+      const translateResult = await window.electronAPI.translate(text);
+      if (!translateResult.success) {
+        setProcessError(translateResult.error || 'Translation failed');
+        setIsProcessing(false);
+        return;
+      }
+
+      setResultsData({
+        original: translateResult.original || text,
+        pinyin: translateResult.pinyin || '',
+        translation: translateResult.translation || '',
+      });
+      setIsProcessing(false);
+
+      // Add to history (main process generates id and timestamp)
+      await window.electronAPI.addToHistory({
+        chinese: translateResult.original || text,
+        pinyin: translateResult.pinyin || '',
+        english: translateResult.translation || '',
+      });
+    } catch (err) {
+      setProcessError(err instanceof Error ? err.message : 'Unknown error');
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -216,6 +291,12 @@ export function MainAppLayout() {
           tooltip="History"
         />
         <SidebarButton
+          icon={<Search size={22} />}
+          isActive={currentView === 'search'}
+          onClick={() => setCurrentView('search')}
+          tooltip="Search"
+        />
+        <SidebarButton
           icon={<Settings size={22} />}
           isActive={currentView === 'settings'}
           onClick={() => setCurrentView('settings')}
@@ -227,6 +308,13 @@ export function MainAppLayout() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {currentView === 'history' && (
           <HistoryView onItemClick={handleHistoryItemClick} />
+        )}
+        {currentView === 'search' && (
+          <SearchView
+            historyItems={historyItems}
+            onItemClick={handleSearchItemClick}
+            onTranslateText={handleTranslateText}
+          />
         )}
         {currentView === 'settings' && (
           <SettingsView />

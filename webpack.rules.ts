@@ -7,6 +7,8 @@ export const rules: Required<ModuleOptions>['rules'] = [
   },
   {
     test: /[/\\]node_modules[/\\].+\.(m?js|node)$/,
+    // Exclude electron from asset relocator - it injects __dirname which breaks sandbox
+    exclude: /[/\\]node_modules[/\\]electron[/\\]/,
     parser: { amd: false },
     use: {
       loader: '@vercel/webpack-asset-relocator-loader',

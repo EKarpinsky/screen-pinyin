@@ -64,10 +64,14 @@ const createMainWindow = (): void => {
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false, // Disable sandbox to allow __dirname in preload
     },
   });
 
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
+
+  // Open DevTools in development
+  mainWindow.webContents.openDevTools({ mode: 'detach' });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -82,6 +86,8 @@ const createOverlayWindow = async (): Promise<void> => {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width, height } = primaryDisplay.size;
 
+  console.log('Creating overlay window with preload:', OVERLAY_WINDOW_PRELOAD_WEBPACK_ENTRY);
+  
   overlayWindow = new BrowserWindow({
     width,
     height,
@@ -102,12 +108,17 @@ const createOverlayWindow = async (): Promise<void> => {
       preload: OVERLAY_WINDOW_PRELOAD_WEBPACK_ENTRY,
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false, // Try disabling sandbox for overlay
     },
   });
 
+  console.log('Loading overlay URL:', OVERLAY_WINDOW_WEBPACK_ENTRY);
   overlayWindow.loadURL(OVERLAY_WINDOW_WEBPACK_ENTRY);
   overlayWindow.setAlwaysOnTop(true, 'screen-saver');
   overlayWindow.focus();
+
+  // Enable DevTools for overlay debugging
+  overlayWindow.webContents.openDevTools({ mode: 'detach' });
 
   overlayWindow.on('closed', () => {
     overlayWindow = null;

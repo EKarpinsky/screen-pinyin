@@ -56,10 +56,8 @@ export function SelectionOverlay() {
     const height = Math.abs(currentPoint.y - startPoint.y)
 
     if (width > 10 && height > 10) {
-      const result = await window.electronAPI.selectionComplete({ x, y, width, height })
-      if (result.position) {
-        window.electronAPI.showResults(result.position)
-      }
+      // Main process will close this window and show results in main window
+      await window.electronAPI.selectionComplete({ x, y, width, height })
     }
   }
 
