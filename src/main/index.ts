@@ -80,7 +80,14 @@ const createMainWindow = (): void => {
 
 const createOverlayWindow = async (): Promise<void> => {
   // Capture screenshot first
-  currentScreenshotBuffer = await captureScreen();
+  console.log('Capturing screenshot...');
+  try {
+    currentScreenshotBuffer = await captureScreen();
+    console.log('Screenshot captured:', currentScreenshotBuffer ? `${currentScreenshotBuffer.length} bytes` : 'NULL');
+  } catch (err) {
+    console.error('Screenshot capture failed:', err);
+    currentScreenshotBuffer = null;
+  }
 
   // Get primary display dimensions
   const primaryDisplay = screen.getPrimaryDisplay();
@@ -187,9 +194,13 @@ const startCaptureWorkflow = async (): Promise<void> => {
 const setupIpcHandlers = (): void => {
   // Screenshot handlers
   ipcMain.handle('get-screenshot', async () => {
+    console.log('[IPC] get-screenshot called, buffer:', currentScreenshotBuffer ? `${currentScreenshotBuffer.length} bytes` : 'NULL');
     if (currentScreenshotBuffer) {
-      return `data:image/png;base64,${currentScreenshotBuffer.toString('base64')}`;
+      const dataUrl = `data:image/png;base64,${currentScreenshotBuffer.toString('base64')}`;
+      console.log('[IPC] Returning data URL of length:', dataUrl.length);
+      return dataUrl;
     }
+    console.log('[IPC] No screenshot buffer available');
     return null;
   });
 

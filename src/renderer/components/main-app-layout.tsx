@@ -1,16 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { Copy, Check, X, ArrowLeft, Clock, Settings, Search } from 'lucide-react';
-import { CharacterDetailPanel, CharacterData } from './character-detail-panel';
+import { X, Clock, Settings, Search } from 'lucide-react';
 import { SearchView } from './search-view';
+import { ResultsViewWithDetail } from './results-view-with-detail';
 import hanziDictionary from '../../data/hanzi-dictionary.json';
 
-// Define HistoryItem type locally (not imported from preload to avoid sandbox issues)
+// Define types locally (not imported from preload to avoid sandbox issues)
 interface HistoryItem {
   id: string;
   chinese: string;
   pinyin: string;
   english: string;
   timestamp: number;
+}
+
+interface CharacterData {
+  character: string;
+  pinyin: string[];
+  definition: string;
+  radical: string;
+  decomposition: string;
+  etymology: {
+    type: string;
+    phonetic?: string;
+    semantic?: string;
+    hint?: string;
+  } | null;
 }
 
 type ViewType = 'history' | 'settings' | 'search' | 'results';
@@ -53,15 +67,6 @@ const keyframesStyle = `
     to { transform: rotate(360deg); }
   }
 `;
-
-// Check if a character is Chinese
-function isChineseChar(char: string): boolean {
-  const code = char.charCodeAt(0);
-  return (code >= 0x4E00 && code <= 0x9FFF) ||
-         (code >= 0x3400 && code <= 0x4DBF) ||
-         (code >= 0x2E80 && code <= 0x2EFF) ||
-         (code >= 0x2F00 && code <= 0x2FDF);
-}
 
 const AZURE_REGIONS = [
   { value: "eastus", label: "East US" },
@@ -320,7 +325,7 @@ export function MainAppLayout() {
           <SettingsView />
         )}
         {currentView === 'results' && (
-          <ResultsView
+          <ResultsViewWrapper
             data={resultsData}
             isProcessing={isProcessing}
             error={processError}
@@ -808,8 +813,8 @@ function SettingsView() {
   );
 }
 
-// Results View Component
-function ResultsView({
+// Results View Wrapper - handles loading/error states
+function ResultsViewWrapper({
   data,
   isProcessing,
   error,
@@ -820,75 +825,6 @@ function ResultsView({
   error: string | null;
   onBack: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
-  const [selectedCharacter, setSelectedCharacter] = useState<CharacterData | null>(null);
-  const [isPanelOpen, setIsPanelOpen] = useState(false);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (isPanelOpen) {
-          setIsPanelOpen(false);
-        } else {
-          onBack();
-        }
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPanelOpen, onBack]);
-
-  const handleCopy = async () => {
-    if (!data) return;
-    const text = `${data.original}\n${data.pinyin}\n${data.translation}`;
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleCharacterClick = (char: string) => {
-    const charData = dictionary[char];
-    if (charData) {
-      setSelectedCharacter(charData);
-      setIsPanelOpen(true);
-    }
-  };
-
-  const renderClickableText = (text: string) => {
-    return text.split('').map((char, index) => {
-      const isChinese = isChineseChar(char);
-      const hasData = isChinese && dictionary[char];
-
-      if (isChinese) {
-        return (
-          <span
-            key={index}
-            onClick={() => hasData && handleCharacterClick(char)}
-            style={{
-              cursor: hasData ? 'pointer' : 'default',
-              transition: 'color 0.15s, transform 0.15s',
-              display: 'inline-block',
-            }}
-            onMouseOver={(e) => {
-              if (hasData) {
-                e.currentTarget.style.color = colors.primary;
-                e.currentTarget.style.transform = 'scale(1.05)';
-              }
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.color = colors.foreground;
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
-            title={hasData ? 'Click for details' : undefined}
-          >
-            {char}
-          </span>
-        );
-      }
-      return <span key={index}>{char}</span>;
-    });
-  };
-
   // Loading state
   if (isProcessing) {
     return (
@@ -959,7 +895,6 @@ function ResultsView({
               margin: '0 auto',
             }}
           >
-            <ArrowLeft size={16} />
             Back to History
           </button>
         </div>
@@ -981,149 +916,12 @@ function ResultsView({
     );
   }
 
+  // Use the split-view component for actual results display
   return (
-    <div style={{ display: 'flex', height: '100%', position: 'relative' }}>
-      {/* Main content */}
-      <div style={{
-        flex: 1,
-        padding: '24px 36px 36px 36px',
-        overflowY: 'auto',
-        animation: 'fadeIn 0.3s ease-out',
-      }}>
-        {/* Back button */}
-        <button
-          onClick={onBack}
-          style={{
-            border: 'none',
-            backgroundColor: 'transparent',
-            padding: '6px 0',
-            fontSize: '0.875rem',
-            color: colors.muted,
-            cursor: 'pointer',
-            fontFamily: 'inherit',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            marginBottom: 20,
-            transition: 'color 0.2s',
-          }}
-          onMouseOver={(e) => e.currentTarget.style.color = colors.foreground}
-          onMouseOut={(e) => e.currentTarget.style.color = colors.muted}
-        >
-          <ArrowLeft size={16} />
-          Back to History
-        </button>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-          {/* Chinese Text */}
-          <div style={{ animation: 'slideUp 0.4s ease-out' }}>
-            <h1 style={{
-              fontSize: '3.5rem',
-              fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Source Han Sans SC", sans-serif',
-              fontWeight: 500,
-              color: colors.foreground,
-              lineHeight: 1.2,
-              letterSpacing: '0.02em',
-              margin: 0,
-            }}>
-              {renderClickableText(data.original)}
-            </h1>
-          </div>
-
-          {/* Pinyin */}
-          <div style={{ animation: 'slideUp 0.4s 0.1s ease-out backwards' }}>
-            <div style={{
-              fontSize: '0.7rem',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em',
-              color: colors.muted,
-              marginBottom: 6,
-            }}>
-              Pinyin
-            </div>
-            <p style={{
-              fontSize: '1.15rem',
-              fontFamily: '"Consolas", "Monaco", monospace',
-              color: 'rgba(26, 26, 26, 0.7)',
-              lineHeight: 1.5,
-              letterSpacing: '0.03em',
-              margin: 0,
-            }}>
-              {data.pinyin}
-            </p>
-          </div>
-
-          {/* English Translation */}
-          <div style={{ animation: 'slideUp 0.4s 0.2s ease-out backwards' }}>
-            <div style={{
-              fontSize: '0.7rem',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em',
-              color: colors.muted,
-              marginBottom: 6,
-            }}>
-              Translation
-            </div>
-            <p style={{
-              fontSize: '1.05rem',
-              color: colors.foreground,
-              lineHeight: 1.6,
-              margin: 0,
-            }}>
-              {data.translation}
-            </p>
-          </div>
-
-          {/* Copy Button */}
-          <div style={{ animation: 'slideUp 0.4s 0.3s ease-out backwards' }}>
-            <button
-              onClick={handleCopy}
-              style={{
-                width: '100%',
-                maxWidth: 320,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                border: `1px solid ${colors.border}`,
-                backgroundColor: copied ? colors.foreground : 'rgba(232, 228, 220, 0.3)',
-                padding: '14px 24px',
-                fontSize: '0.875rem',
-                fontWeight: 500,
-                color: copied ? colors.card : colors.foreground,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                transition: 'all 0.2s',
-              }}
-              onMouseOver={(e) => {
-                if (!copied) {
-                  e.currentTarget.style.backgroundColor = colors.foreground;
-                  e.currentTarget.style.color = colors.card;
-                }
-              }}
-              onMouseOut={(e) => {
-                if (!copied) {
-                  e.currentTarget.style.backgroundColor = 'rgba(232, 228, 220, 0.3)';
-                  e.currentTarget.style.color = colors.foreground;
-                }
-              }}
-            >
-              {copied ? <Check size={16} /> : <Copy size={16} />}
-              {copied ? 'Copied!' : 'Copy All'}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Character Detail Panel */}
-      <CharacterDetailPanel
-        data={selectedCharacter}
-        isOpen={isPanelOpen}
-        onClose={() => setIsPanelOpen(false)}
-      />
-    </div>
+    <ResultsViewWithDetail
+      data={data}
+      onBack={onBack}
+    />
   );
 }
 

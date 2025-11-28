@@ -9,18 +9,37 @@ export function SelectionOverlay() {
   const overlayRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!window.electronAPI) {
-      setError('electronAPI not available')
-      return
+    // Small delay to ensure preload script is fully initialized (fixes race condition on fresh start)
+    const initOverlay = async () => {
+      // Wait for electronAPI to be available (with retries)
+      let retries = 0;
+      while (!window.electronAPI && retries < 10) {
+        console.log('[SelectionOverlay] Waiting for electronAPI...', retries);
+        await new Promise(r => setTimeout(r, 50));
+        retries++;
+      }
+      
+      if (!window.electronAPI) {
+        setError('electronAPI not available after retries')
+        return
+      }
+      
+      console.log('[SelectionOverlay] electronAPI ready, calling getScreenshot...')
+      try {
+        const url = await window.electronAPI.getScreenshot()
+        console.log('[SelectionOverlay] Screenshot URL received:', url ? `${url.length} chars` : 'NULL')
+        if (!url) {
+          setError('Screenshot returned null - capture may have failed')
+          return
+        }
+        setScreenshotUrl(url)
+      } catch (err: any) {
+        console.error('[SelectionOverlay] Screenshot error:', err)
+        setError('Screenshot error: ' + err.message)
+      }
     }
     
-    window.electronAPI.getScreenshot()
-      .then((url) => {
-        setScreenshotUrl(url)
-      })
-      .catch((err) => {
-        setError('Screenshot error: ' + err.message)
-      })
+    initOverlay()
 
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") {

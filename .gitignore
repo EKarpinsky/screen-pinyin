@@ -37,3 +37,4 @@ src/data/dictionary.txt
 # Generated data files - regenerate with scripts/build-*.mjs
 # src/data/hanzi-dictionary.json
 # src/data/hsk-dictionary.json
+src/data/sentences-dictionary.json

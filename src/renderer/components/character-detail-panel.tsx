@@ -2,6 +2,16 @@ import { useEffect, useState, useRef } from "react"
 import { X, ChevronLeft } from "lucide-react"
 import hanziDictionary from "../../data/hanzi-dictionary.json"
 import hskDictionary from "../../data/hsk-dictionary.json"
+import sentencesDictionary from "../../data/sentences-dictionary.json"
+
+// Sentences dictionary type
+interface SentenceEntry {
+  s: string  // simplified Chinese
+  p: string  // pinyin
+  e: string  // English
+}
+
+const sentencesData = sentencesDictionary as Record<string, SentenceEntry[]>
 
 // HSK dictionary type
 interface HSKEntry {
@@ -57,6 +67,28 @@ function extractChineseChars(str: string): string[] {
            (code >= 0x2E80 && code <= 0x2EFF) ||
            (code >= 0x2F00 && code <= 0x2FDF)
   })
+}
+
+// Highlight target character in sentence text
+function HighlightedSentence({ text, targetChar }: { text: string, targetChar: string }) {
+  const parts = text.split(targetChar)
+  return (
+    <>
+      {parts.map((part, i) => (
+        <span key={i}>
+          {part}
+          {i < parts.length - 1 && (
+            <span style={{
+              color: colors.primary,
+              fontWeight: 600,
+            }}>
+              {targetChar}
+            </span>
+          )}
+        </span>
+      ))}
+    </>
+  )
 }
 
 // Clickable character component with tooltip
@@ -492,11 +524,10 @@ export function CharacterDetailPanel({ data, isOpen, onClose }: CharacterDetailP
                   </p>
                 )}
                 {currentData.etymology.semantic && currentData.etymology.phonetic && (
-                  <p style={{
+                  <div style={{
                     fontSize: 14,
                     color: 'rgba(26, 26, 26, 0.7)',
                     lineHeight: 1.6,
-                    margin: 0,
                   }}>
                     <ClickableChar 
                       char={currentData.etymology.semantic} 
@@ -510,8 +541,89 @@ export function CharacterDetailPanel({ data, isOpen, onClose }: CharacterDetailP
                       size="1.3em"
                     />
                     {' '}provides the pronunciation.
-                  </p>
+                  </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Example Sentences */}
+          {sentencesData[currentData.character] && sentencesData[currentData.character].length > 0 && (
+            <div style={{ animation: 'slideUp 0.4s 0.4s ease-out backwards' }}>
+              <div style={{
+                fontSize: 11,
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                color: colors.muted,
+                marginBottom: 16,
+              }}>
+                Example Sentences
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {sentencesData[currentData.character].slice(0, 2).map((sentence, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      background: '#efece6',
+                      border: `1px solid ${colors.border}`,
+                      padding: '16px 20px',
+                      position: 'relative',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {/* Decorative quotation mark */}
+                    <div style={{
+                      position: 'absolute',
+                      top: 6,
+                      right: 12,
+                      fontSize: '3rem',
+                      fontFamily: 'Georgia, serif',
+                      color: colors.border,
+                      lineHeight: 1,
+                      opacity: 0.5,
+                      pointerEvents: 'none',
+                    }}>
+                      "
+                    </div>
+
+                    {/* Chinese text with highlighted character */}
+                    <div style={{
+                      fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Source Han Sans SC", sans-serif',
+                      fontSize: '1.25rem',
+                      lineHeight: 1.6,
+                      color: colors.foreground,
+                      marginBottom: 10,
+                      position: 'relative',
+                      zIndex: 1,
+                    }}>
+                      <HighlightedSentence text={sentence.s} targetChar={currentData.character} />
+                    </div>
+
+                    {/* Pinyin */}
+                    <div style={{
+                      fontFamily: '"Consolas", "Monaco", monospace',
+                      fontSize: '0.8125rem',
+                      color: colors.muted,
+                      marginBottom: 10,
+                      letterSpacing: '0.02em',
+                    }}>
+                      {sentence.p}
+                    </div>
+
+                    {/* English translation with left border accent */}
+                    <div style={{
+                      fontSize: '0.875rem',
+                      lineHeight: 1.6,
+                      color: colors.foreground,
+                      opacity: 0.8,
+                      paddingLeft: 12,
+                      borderLeft: `2px solid ${colors.primary}`,
+                    }}>
+                      {sentence.e}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
