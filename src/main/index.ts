@@ -3,6 +3,7 @@ import Store from 'electron-store';
 import { captureScreen, cropImage } from './capture';
 import { createWorker, Worker } from 'tesseract.js';
 import axios from 'axios';
+import nodejieba from 'nodejieba';
 
 // Handle Squirrel events for Windows installer
 if (require('electron-squirrel-startup')) {
@@ -436,6 +437,18 @@ const setupIpcHandlers = (): void => {
     // Clear after reading
     store.delete('pendingCapture');
     return pending;
+  });
+
+  // Word segmentation using nodejieba
+  ipcMain.handle('segment-text', (_event, text: string) => {
+    try {
+      // Use nodejieba.cut for word segmentation
+      const segments = nodejieba.cut(text);
+      return { success: true, segments };
+    } catch (error) {
+      console.error('Segmentation error:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Segmentation failed', segments: [] };
+    }
   });
 
   // Pending results data for history item clicks

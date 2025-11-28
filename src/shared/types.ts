@@ -15,6 +15,9 @@ export interface ElectronAPI {
   performOCR: (imageData: string) => Promise<OCRResult>;
   translate: (text: string) => Promise<TranslationResponse>;
 
+  // Word segmentation
+  segmentText: (text: string) => Promise<SegmentationResult>;
+
   // History API
   getHistory: () => Promise<HistoryItem[]>;
   addToHistory: (item: Omit<HistoryItem, 'id' | 'timestamp'>) => Promise<{ success: boolean; item: HistoryItem }>;
@@ -72,4 +75,23 @@ export interface HistoryItem {
   pinyin: string;
   english: string;
   timestamp: number;
+}
+
+export interface SegmentationResult {
+  success: boolean;
+  segments: string[];
+  error?: string;
+}
+
+export interface WordData {
+  word: string;
+  traditional?: string;
+  pinyin: string;
+  definitions: string[];
+}
+
+export interface CedictEntry {
+  traditional: string;
+  pinyin: string;
+  definitions: string[];
 }

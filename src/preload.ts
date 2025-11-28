@@ -20,6 +20,9 @@ const electronAPI = {
   performOCR: function(imageData) { return ipcRenderer.invoke('perform-ocr', imageData); },
   translate: function(text) { return ipcRenderer.invoke('translate', text); },
 
+  // Word segmentation
+  segmentText: function(text) { return ipcRenderer.invoke('segment-text', text); },
+
   // History API
   getHistory: function() { return ipcRenderer.invoke('get-history'); },
   addToHistory: function(item) { return ipcRenderer.invoke('add-to-history', item); },

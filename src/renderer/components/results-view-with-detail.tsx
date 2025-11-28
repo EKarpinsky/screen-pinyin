@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Copy, Check, X, ArrowLeft, ChevronLeft } from 'lucide-react';
+import { Copy, Check, X, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import hanziDictionary from '../../data/hanzi-dictionary.json';
 import hskDictionary from '../../data/hsk-dictionary.json';
 import sentencesDictionary from '../../data/sentences-dictionary.json';
+import cedictDictionary from '../../data/cedict-dictionary.json';
 
 // Types
 interface HSKEntry {
@@ -30,6 +31,20 @@ interface CharacterData {
   } | null;
 }
 
+interface CedictEntry {
+  traditional: string;
+  pinyin: string;
+  definitions: string[];
+}
+
+interface WordData {
+  word: string;
+  traditional: string;
+  pinyin: string;
+  definitions: string[];
+  isMultiChar: boolean;
+}
+
 interface ResultsData {
   original: string;
   pinyin: string;
@@ -42,10 +57,18 @@ interface ResultsViewWithDetailProps {
   onCopyAll?: () => void;
 }
 
+// Type for detail panel: either word or character
+type DetailType = 'word' | 'character';
+interface DetailState {
+  type: DetailType;
+  data: WordData | CharacterData;
+}
+
 // Data
 const dictionary = hanziDictionary as Record<string, CharacterData>;
 const hskData = hskDictionary as Record<string, HSKEntry>;
 const sentencesData = sentencesDictionary as Record<string, SentenceEntry[]>;
+const cedictData = cedictDictionary as Record<string, CedictEntry>;
 
 // Colors
 const colors = {
@@ -56,6 +79,8 @@ const colors = {
   border: '#d4d0c8',
   input: '#efece6',
   primary: '#4a3728',
+  wordHighlight: 'rgba(74, 55, 40, 0.06)',
+  wordBorder: 'rgba(74, 55, 40, 0.15)',
 };
 
 // Check if a character is Chinese
@@ -67,40 +92,22 @@ function isChineseChar(char: string): boolean {
          (code >= 0x2F00 && code <= 0x2FDF);
 }
 
-// Extract Chinese characters from decomposition
-function extractChineseChars(str: string): string[] {
-  if (!str) return [];
-  return str.split('').filter(char => isChineseChar(char));
+// Check if string contains only Chinese characters
+function isAllChinese(str: string): boolean {
+  return str.split('').every(char => isChineseChar(char) || /\s/.test(char));
 }
 
-// Highlight character in sentence
-function HighlightedSentence({ text, targetChar }: { text: string; targetChar: string }) {
-  const parts = text.split(targetChar);
-  return (
-    <>
-      {parts.map((part, i) => (
-        <span key={i}>
-          {part}
-          {i < parts.length - 1 && (
-            <span style={{ color: colors.primary, fontWeight: 600 }}>
-              {targetChar}
-            </span>
-          )}
-        </span>
-      ))}
-    </>
-  );
-}
-
-// Clickable character with tooltip
+// Clickable character with tooltip (for use in word detail and examples)
 function ClickableChar({
   char,
   onClick,
   size = '2.5rem',
+  highlight = false,
 }: {
   char: string;
   onClick: () => void;
   size?: string;
+  highlight?: boolean;
 }) {
   const [showInfo, setShowInfo] = useState(false);
   const charData = dictionary[char];
@@ -111,7 +118,8 @@ function ClickableChar({
       <span style={{
         fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
         fontSize: size,
-        color: colors.foreground,
+        color: highlight ? colors.primary : colors.foreground,
+        fontWeight: highlight ? 600 : 400,
       }}>
         {char}
       </span>
@@ -129,13 +137,14 @@ function ClickableChar({
         style={{
           fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
           fontSize: size,
-          color: colors.foreground,
+          color: highlight ? colors.primary : colors.foreground,
+          fontWeight: highlight ? 600 : 400,
           cursor: 'pointer',
           transition: 'color 0.15s',
           display: 'inline-block',
         }}
         onMouseOver={(e) => e.currentTarget.style.color = colors.primary}
-        onMouseOut={(e) => e.currentTarget.style.color = colors.foreground}
+        onMouseOut={(e) => e.currentTarget.style.color = highlight ? colors.primary : colors.foreground}
       >
         {char}
       </span>
@@ -197,21 +206,97 @@ function ClickableChar({
   );
 }
 
+// Clickable word component (visual grouping for multi-character words)
+function ClickableWord({
+  word,
+  onClick,
+  size = '3.5rem',
+}: {
+  word: string;
+  onClick: () => void;
+  size?: string;
+}) {
+  const [isHovered, setIsHovered] = useState(false);
+  const isMultiChar = word.length > 1 && isAllChinese(word);
+  
+  // Check if word has definition in CEDICT or character dictionary
+  const hasWordDef = cedictData[word] !== undefined;
+  const hasCharDef = word.length === 1 && dictionary[word] !== undefined;
+  const isClickable = hasWordDef || hasCharDef;
+
+  // For punctuation and non-Chinese, just render as-is
+  if (!isAllChinese(word) || word.trim() === '') {
+    return (
+      <span style={{
+        fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
+        fontSize: size,
+        color: colors.foreground,
+      }}>
+        {word}
+      </span>
+    );
+  }
+
+  return (
+    <span
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onClick={isClickable ? onClick : undefined}
+      style={{
+        display: 'inline-block',
+        fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
+        fontSize: size,
+        color: colors.foreground,
+        cursor: isClickable ? 'pointer' : 'default',
+        padding: isMultiChar ? '2px 4px' : '0',
+        margin: isMultiChar ? '0 2px' : '0',
+        borderRadius: 4,
+        backgroundColor: isMultiChar && isHovered ? colors.wordHighlight : 'transparent',
+        borderBottom: isMultiChar ? `2px solid ${isHovered ? colors.primary : colors.wordBorder}` : 'none',
+        transition: 'all 0.15s ease',
+      }}
+    >
+      {word}
+    </span>
+  );
+}
+
 export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWithDetailProps) {
-  const [selectedCharacter, setSelectedCharacter] = useState<CharacterData | null>(null);
-  const [characterHistory, setCharacterHistory] = useState<CharacterData[]>([]);
+  const [segmentedWords, setSegmentedWords] = useState<string[]>([]);
+  const [selectedDetail, setSelectedDetail] = useState<DetailState | null>(null);
+  const [detailHistory, setDetailHistory] = useState<DetailState[]>([]);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'structure'>('overview');
   const [currentExampleIndex, setCurrentExampleIndex] = useState(0);
   const detailRef = useRef<HTMLDivElement>(null);
 
-  const hasDetail = selectedCharacter !== null;
+  const hasDetail = selectedDetail !== null;
+
+  // Segment text on mount or data change
+  useEffect(() => {
+    const segmentText = async () => {
+      try {
+        const result = await window.electronAPI.segmentText(data.original);
+        if (result.success && result.segments) {
+          setSegmentedWords(result.segments);
+        } else {
+          // Fallback: split by character
+          setSegmentedWords(data.original.split(''));
+        }
+      } catch (error) {
+        console.error('Segmentation failed:', error);
+        // Fallback: split by character
+        setSegmentedWords(data.original.split(''));
+      }
+    };
+    segmentText();
+  }, [data.original]);
 
   // Handle ESC key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (characterHistory.length > 0) {
+        if (detailHistory.length > 0) {
           handleDetailBack();
         } else if (hasDetail) {
           handleCloseDetail();
@@ -222,44 +307,101 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [hasDetail, characterHistory, onBack]);
+  }, [hasDetail, detailHistory, onBack]);
 
-  // Scroll detail panel to top when character changes
+  // Scroll detail panel to top when detail changes
   useEffect(() => {
     if (detailRef.current) {
       detailRef.current.scrollTop = 0;
     }
-  }, [selectedCharacter]);
+  }, [selectedDetail]);
+
+  // Get word data from CEDICT
+  const getWordData = (word: string): WordData | null => {
+    const cedict = cedictData[word];
+    if (cedict) {
+      return {
+        word,
+        traditional: cedict.traditional,
+        pinyin: cedict.pinyin,
+        definitions: cedict.definitions,
+        isMultiChar: word.length > 1,
+      };
+    }
+    return null;
+  };
+
+  // Get character data from hanzi dictionary
+  const getCharacterData = (char: string): CharacterData | null => {
+    return dictionary[char] || null;
+  };
+
+  const handleWordClick = (word: string) => {
+    // For single characters, go directly to character detail
+    if (word.length === 1) {
+      const charData = getCharacterData(word);
+      if (charData) {
+        if (selectedDetail) {
+          setDetailHistory([...detailHistory, selectedDetail]);
+        }
+        setSelectedDetail({ type: 'character', data: charData });
+        setActiveTab('overview');
+        setCurrentExampleIndex(0);
+      }
+    } else {
+      // For multi-character words, show word detail
+      const wordData = getWordData(word);
+      if (wordData) {
+        if (selectedDetail) {
+          setDetailHistory([...detailHistory, selectedDetail]);
+        }
+        setSelectedDetail({ type: 'word', data: wordData });
+        setActiveTab('overview');
+        setCurrentExampleIndex(0);
+      } else {
+        // If no word entry, fall back to first character
+        const charData = getCharacterData(word[0]);
+        if (charData) {
+          if (selectedDetail) {
+            setDetailHistory([...detailHistory, selectedDetail]);
+          }
+          setSelectedDetail({ type: 'character', data: charData });
+          setActiveTab('overview');
+          setCurrentExampleIndex(0);
+        }
+      }
+    }
+  };
 
   const handleCharacterClick = (char: string) => {
-    const charData = dictionary[char];
+    const charData = getCharacterData(char);
     if (charData) {
-      if (selectedCharacter) {
-        setCharacterHistory([...characterHistory, selectedCharacter]);
+      if (selectedDetail) {
+        setDetailHistory([...detailHistory, selectedDetail]);
       }
-      setSelectedCharacter(charData);
-      setActiveTab('overview'); // Reset to overview when selecting new character
-      setCurrentExampleIndex(0); // Reset example index
+      setSelectedDetail({ type: 'character', data: charData });
+      setActiveTab('overview');
+      setCurrentExampleIndex(0);
     }
   };
 
   const handleDetailBack = () => {
-    if (characterHistory.length > 0) {
-      const prev = characterHistory[characterHistory.length - 1];
-      setCharacterHistory(characterHistory.slice(0, -1));
-      setSelectedCharacter(prev);
-      setActiveTab('overview'); // Reset tab when going back
-      setCurrentExampleIndex(0); // Reset example index
+    if (detailHistory.length > 0) {
+      const prev = detailHistory[detailHistory.length - 1];
+      setDetailHistory(detailHistory.slice(0, -1));
+      setSelectedDetail(prev);
+      setActiveTab('overview');
+      setCurrentExampleIndex(0);
     } else {
       handleCloseDetail();
     }
   };
 
   const handleCloseDetail = () => {
-    setSelectedCharacter(null);
-    setCharacterHistory([]);
-    setActiveTab('overview'); // Reset tab when closing
-    setCurrentExampleIndex(0); // Reset example index
+    setSelectedDetail(null);
+    setDetailHistory([]);
+    setActiveTab('overview');
+    setCurrentExampleIndex(0);
   };
 
   const handleCopy = async () => {
@@ -270,24 +412,24 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
     onCopyAll?.();
   };
 
-  const renderClickableText = (text: string, size: string = '3.5rem') => {
-    return text.split('').map((char, index) => {
-      if (isChineseChar(char)) {
-        return (
-          <ClickableChar
-            key={index}
-            char={char}
-            onClick={() => handleCharacterClick(char)}
-            size={size}
-          />
-        );
-      }
-      return <span key={index} style={{ fontSize: size }}>{char}</span>;
-    });
+  // Render the segmented words
+  const renderSegmentedText = (size: string = '3.5rem') => {
+    return segmentedWords.map((word, index) => (
+      <ClickableWord
+        key={index}
+        word={word}
+        onClick={() => handleWordClick(word)}
+        size={size}
+      />
+    ));
   };
 
+  // Get current character for character detail panel
+  const currentCharacter = selectedDetail?.type === 'character' ? selectedDetail.data as CharacterData : null;
+  const currentWord = selectedDetail?.type === 'word' ? selectedDetail.data as WordData : null;
+
   // Get sentences for current character
-  const characterSentences = selectedCharacter ? (sentencesData[selectedCharacter.character] || []) : [];
+  const characterSentences = currentCharacter ? (sentencesData[currentCharacter.character] || []) : [];
 
   return (
     <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
@@ -346,20 +488,37 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
           </button>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-            {/* Chinese Text */}
+            {/* Chinese Text - now with word segmentation */}
             <div style={{ animation: 'slideUp 0.4s ease-out' }}>
-              <h1 style={{
+              <div style={{
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                color: colors.muted,
+                marginBottom: 8,
+              }}>
+                Original Text
+                <span style={{ 
+                  marginLeft: 8, 
+                  fontWeight: 400, 
+                  fontSize: '0.65rem',
+                  opacity: 0.7,
+                }}>
+                  (click words to explore)
+                </span>
+              </div>
+              <div style={{
                 fontSize: hasDetail ? '2.25rem' : '3.5rem',
                 fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
                 fontWeight: 500,
                 color: colors.foreground,
-                lineHeight: 1.3,
+                lineHeight: 1.4,
                 letterSpacing: '0.02em',
-                margin: 0,
                 transition: 'font-size 0.4s ease-out',
               }}>
-                {renderClickableText(data.original, hasDetail ? '2.25rem' : '3.5rem')}
-              </h1>
+                {renderSegmentedText(hasDetail ? '2.25rem' : '3.5rem')}
+              </div>
             </div>
 
             {/* Pinyin */}
@@ -454,8 +613,8 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
         </div>
       </div>
 
-      {/* Right Column: Character Detail (slides in) */}
-      {hasDetail && selectedCharacter && (
+      {/* Right Column: Detail Panel (Word or Character) */}
+      {hasDetail && (
         <div
           style={{
             width: '65%',
@@ -495,8 +654,20 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
               onMouseOut={(e) => e.currentTarget.style.color = colors.muted}
             >
               <ChevronLeft size={16} />
-              {characterHistory.length > 0 ? 'Previous' : 'Close'}
+              {detailHistory.length > 0 ? 'Previous' : 'Close'}
             </button>
+            <div style={{
+              fontSize: '0.65rem',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              color: colors.muted,
+              padding: '4px 10px',
+              backgroundColor: colors.wordHighlight,
+              borderRadius: 4,
+            }}>
+              {selectedDetail.type === 'word' ? 'Word' : 'Character'}
+            </div>
             <button
               onClick={handleCloseDetail}
               style={{
@@ -515,7 +686,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
             </button>
           </div>
 
-          {/* Sticky Character Display */}
+          {/* Display - Word or Character */}
           <div style={{
             borderBottom: `1px solid ${colors.border}`,
             padding: '20px 24px',
@@ -526,63 +697,65 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '5rem',
+              fontSize: currentWord ? '4rem' : '5rem',
               fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
               fontWeight: 500,
               color: colors.foreground,
               lineHeight: 1,
             }}>
-              {selectedCharacter.character}
+              {currentWord ? currentWord.word : currentCharacter?.character}
             </div>
           </div>
 
-          {/* Tab Bar */}
-          <div style={{
-            borderBottom: `1px solid ${colors.border}`,
-            backgroundColor: colors.card,
-          }}>
-            <div style={{ display: 'flex', paddingLeft: 24 }}>
-              {(['overview', 'structure'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  style={{
-                    position: 'relative',
-                    padding: '12px 20px',
-                    fontSize: '0.7rem',
-                    fontWeight: 600,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.08em',
-                    color: activeTab === tab ? colors.foreground : colors.muted,
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    transition: 'color 0.15s',
-                  }}
-                  onMouseOver={(e) => {
-                    if (activeTab !== tab) e.currentTarget.style.color = colors.foreground;
-                  }}
-                  onMouseOut={(e) => {
-                    if (activeTab !== tab) e.currentTarget.style.color = colors.muted;
-                  }}
-                >
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                  {activeTab === tab && (
-                    <div style={{
-                      position: 'absolute',
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      height: 2,
-                      backgroundColor: colors.primary,
-                    }} />
-                  )}
-                </button>
-              ))}
+          {/* Tab Bar - only show for character detail */}
+          {currentCharacter && (
+            <div style={{
+              borderBottom: `1px solid ${colors.border}`,
+              backgroundColor: colors.card,
+            }}>
+              <div style={{ display: 'flex', paddingLeft: 24 }}>
+                {(['overview', 'structure'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    style={{
+                      position: 'relative',
+                      padding: '12px 20px',
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.08em',
+                      color: activeTab === tab ? colors.foreground : colors.muted,
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      transition: 'color 0.15s',
+                    }}
+                    onMouseOver={(e) => {
+                      if (activeTab !== tab) e.currentTarget.style.color = colors.foreground;
+                    }}
+                    onMouseOut={(e) => {
+                      if (activeTab !== tab) e.currentTarget.style.color = colors.muted;
+                    }}
+                  >
+                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                    {activeTab === tab && (
+                      <div style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        height: 2,
+                        backgroundColor: colors.primary,
+                      }} />
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Tab Content */}
+          {/* Content */}
           <div
             ref={detailRef}
             style={{
@@ -591,8 +764,8 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
               padding: '24px',
             }}
           >
-            {/* Overview Tab */}
-            {activeTab === 'overview' && (
+            {/* WORD DETAIL VIEW */}
+            {currentWord && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                 {/* Pinyin with HSK badge */}
                 <div style={{ animation: 'slideUp 0.3s ease-out' }}>
@@ -614,9 +787,9 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                       letterSpacing: '0.03em',
                       margin: 0,
                     }}>
-                      {selectedCharacter.pinyin.length > 0 ? selectedCharacter.pinyin.join(', ') : '—'}
+                      {currentWord.pinyin}
                     </p>
-                    {hskData[selectedCharacter.character] && (
+                    {hskData[currentWord.word] && (
                       <span style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -629,7 +802,203 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                         color: colors.primary,
                         borderRadius: 4,
                       }}>
-                        HSK {hskData[selectedCharacter.character].level}
+                        HSK {hskData[currentWord.word].level}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Traditional form (if different) */}
+                {currentWord.traditional !== currentWord.word && (
+                  <div style={{ animation: 'slideUp 0.3s 0.05s ease-out backwards' }}>
+                    <div style={{
+                      fontSize: '0.65rem',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.1em',
+                      color: colors.muted,
+                      marginBottom: 6,
+                    }}>
+                      Traditional
+                    </div>
+                    <p style={{
+                      fontSize: '1.25rem',
+                      fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
+                      color: colors.foreground,
+                      margin: 0,
+                    }}>
+                      {currentWord.traditional}
+                    </p>
+                  </div>
+                )}
+
+                {/* Definitions */}
+                <div style={{ animation: 'slideUp 0.3s 0.1s ease-out backwards' }}>
+                  <div style={{
+                    fontSize: '0.65rem',
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                    color: colors.muted,
+                    marginBottom: 8,
+                  }}>
+                    Definitions
+                  </div>
+                  <ul style={{
+                    margin: 0,
+                    paddingLeft: 20,
+                    color: colors.foreground,
+                    lineHeight: 1.8,
+                  }}>
+                    {currentWord.definitions.slice(0, 8).map((def, i) => (
+                      <li key={i} style={{ fontSize: '0.95rem' }}>{def}</li>
+                    ))}
+                    {currentWord.definitions.length > 8 && (
+                      <li style={{ 
+                        fontSize: '0.85rem', 
+                        color: colors.muted,
+                        listStyle: 'none',
+                        marginLeft: -20,
+                        marginTop: 4,
+                      }}>
+                        +{currentWord.definitions.length - 8} more...
+                      </li>
+                    )}
+                  </ul>
+                </div>
+
+                {/* Component Characters - clickable chips */}
+                <div style={{ 
+                  animation: 'slideUp 0.3s 0.15s ease-out backwards',
+                  marginTop: 8,
+                  paddingTop: 20,
+                  borderTop: `1px solid ${colors.border}`,
+                }}>
+                  <div style={{
+                    fontSize: '0.65rem',
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                    color: colors.muted,
+                    marginBottom: 12,
+                  }}>
+                    Component Characters
+                    <span style={{ 
+                      marginLeft: 8, 
+                      fontWeight: 400, 
+                      fontSize: '0.6rem',
+                      opacity: 0.7,
+                    }}>
+                      (click to explore)
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    {currentWord.word.split('').map((char, i) => {
+                      const charData = dictionary[char];
+                      const charHsk = hskData[char];
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => handleCharacterClick(char)}
+                          disabled={!charData}
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: 4,
+                            padding: '12px 16px',
+                            backgroundColor: colors.card,
+                            border: `1px solid ${colors.border}`,
+                            borderRadius: 8,
+                            cursor: charData ? 'pointer' : 'default',
+                            opacity: charData ? 1 : 0.5,
+                            transition: 'all 0.15s ease',
+                            minWidth: 80,
+                          }}
+                          onMouseOver={(e) => {
+                            if (charData) {
+                              e.currentTarget.style.backgroundColor = colors.wordHighlight;
+                              e.currentTarget.style.borderColor = colors.primary;
+                            }
+                          }}
+                          onMouseOut={(e) => {
+                            e.currentTarget.style.backgroundColor = colors.card;
+                            e.currentTarget.style.borderColor = colors.border;
+                          }}
+                        >
+                          <span style={{
+                            fontSize: '2rem',
+                            fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
+                            color: colors.foreground,
+                            lineHeight: 1,
+                          }}>
+                            {char}
+                          </span>
+                          <span style={{
+                            fontSize: '0.75rem',
+                            fontFamily: '"Consolas", "Monaco", monospace',
+                            color: colors.muted,
+                          }}>
+                            {charData?.pinyin?.[0] || '—'}
+                          </span>
+                          {charHsk && (
+                            <span style={{
+                              fontSize: '0.6rem',
+                              padding: '1px 6px',
+                              backgroundColor: 'rgba(74, 55, 40, 0.08)',
+                              borderRadius: 3,
+                              color: colors.primary,
+                            }}>
+                              HSK {charHsk.level}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* CHARACTER DETAIL VIEW - Overview Tab */}
+            {currentCharacter && activeTab === 'overview' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                {/* Pinyin with HSK badge */}
+                <div style={{ animation: 'slideUp 0.3s ease-out' }}>
+                  <div style={{
+                    fontSize: '0.65rem',
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                    color: colors.muted,
+                    marginBottom: 6,
+                  }}>
+                    Pinyin
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    <p style={{
+                      fontSize: '1.5rem',
+                      fontFamily: '"Consolas", "Monaco", monospace',
+                      color: 'rgba(26, 26, 26, 0.8)',
+                      letterSpacing: '0.03em',
+                      margin: 0,
+                    }}>
+                      {currentCharacter.pinyin.length > 0 ? currentCharacter.pinyin.join(', ') : '—'}
+                    </p>
+                    {hskData[currentCharacter.character] && (
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        padding: '3px 10px',
+                        backgroundColor: 'rgba(74, 55, 40, 0.08)',
+                        border: `1px solid ${colors.border}`,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        letterSpacing: '0.05em',
+                        color: colors.primary,
+                        borderRadius: 4,
+                      }}>
+                        HSK {hskData[currentCharacter.character].level}
                       </span>
                     )}
                   </div>
@@ -653,7 +1022,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                     lineHeight: 1.6,
                     margin: 0,
                   }}>
-                    {selectedCharacter.definition || '—'}
+                    {currentCharacter.definition || '—'}
                   </p>
                 </div>
 
@@ -689,7 +1058,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                       letterSpacing: '0.03em',
                     }}>
                       {characterSentences[currentExampleIndex].s.split('').map((char, charIndex) => {
-                        const isTarget = char === selectedCharacter.character;
+                        const isTarget = char === currentCharacter.character;
                         const isChinese = isChineseChar(char);
 
                         if (!isChinese) {
@@ -697,31 +1066,13 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                         }
 
                         return (
-                          <span
+                          <ClickableChar
                             key={charIndex}
+                            char={char}
                             onClick={() => handleCharacterClick(char)}
-                            style={{
-                              color: isTarget ? colors.primary : colors.foreground,
-                              fontWeight: isTarget ? 600 : 400,
-                              fontSize: isTarget ? '1.75rem' : '1.5rem',
-                              cursor: 'pointer',
-                              display: 'inline-block',
-                              position: 'relative',
-                              transition: 'all 0.2s ease',
-                              borderBottom: isTarget ? `2px solid ${colors.primary}` : 'none',
-                              paddingBottom: isTarget ? '2px' : '0',
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.color = colors.primary;
-                              e.currentTarget.style.transform = 'translateY(-1px)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.color = isTarget ? colors.primary : colors.foreground;
-                              e.currentTarget.style.transform = 'translateY(0)';
-                            }}
-                          >
-                            {char}
-                          </span>
+                            size="1.5rem"
+                            highlight={isTarget}
+                          />
                         );
                       })}
                     </div>
@@ -825,8 +1176,8 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
               </div>
             )}
 
-            {/* Structure Tab */}
-            {activeTab === 'structure' && (
+            {/* CHARACTER DETAIL VIEW - Structure Tab */}
+            {currentCharacter && activeTab === 'structure' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                 {/* Radical */}
                 <div style={{ animation: 'slideUp 0.3s ease-out' }}>
@@ -838,15 +1189,15 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                     color: colors.muted,
                     marginBottom: 6,
                   }}>
-                    Radical {dictionary[selectedCharacter.radical] && (
+                    Radical {dictionary[currentCharacter.radical] && (
                       <span style={{ fontSize: '0.6rem', opacity: 0.7 }}>(click to explore)</span>
                     )}
                   </div>
                   <div>
-                    {selectedCharacter.radical ? (
+                    {currentCharacter.radical ? (
                       <ClickableChar
-                        char={selectedCharacter.radical}
-                        onClick={() => handleCharacterClick(selectedCharacter.radical)}
+                        char={currentCharacter.radical}
+                        onClick={() => handleCharacterClick(currentCharacter.radical)}
                         size="2.5rem"
                       />
                     ) : '—'}
@@ -874,8 +1225,8 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                     gap: 4,
                     alignItems: 'center',
                   }}>
-                    {selectedCharacter.decomposition ? (
-                      selectedCharacter.decomposition.split('').map((char, i) => {
+                    {currentCharacter.decomposition ? (
+                      currentCharacter.decomposition.split('').map((char, i) => {
                         if (isChineseChar(char)) {
                           return (
                             <ClickableChar
@@ -893,7 +1244,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                 </div>
 
                 {/* Etymology */}
-                {selectedCharacter.etymology && (
+                {currentCharacter.etymology && (
                   <div style={{ animation: 'slideUp 0.3s 0.1s ease-out backwards' }}>
                     <div style={{
                       fontSize: '0.65rem',
@@ -913,33 +1264,33 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                         margin: 0,
                       }}>
                         <span style={{ fontWeight: 500 }}>Type:</span>{' '}
-                        <span style={{ textTransform: 'capitalize' }}>{selectedCharacter.etymology.type}</span>
+                        <span style={{ textTransform: 'capitalize' }}>{currentCharacter.etymology.type}</span>
                       </p>
-                      {selectedCharacter.etymology.hint && (
+                      {currentCharacter.etymology.hint && (
                         <p style={{
                           fontSize: '0.875rem',
                           color: 'rgba(26, 26, 26, 0.7)',
                           lineHeight: 1.6,
                           margin: 0,
                         }}>
-                          {selectedCharacter.etymology.hint}
+                          {currentCharacter.etymology.hint}
                         </p>
                       )}
-                      {selectedCharacter.etymology.semantic && selectedCharacter.etymology.phonetic && (
+                      {currentCharacter.etymology.semantic && currentCharacter.etymology.phonetic && (
                         <div style={{
                           fontSize: '0.875rem',
                           color: 'rgba(26, 26, 26, 0.7)',
                           lineHeight: 1.6,
                         }}>
                           <ClickableChar
-                            char={selectedCharacter.etymology.semantic}
-                            onClick={() => handleCharacterClick(selectedCharacter.etymology!.semantic!)}
+                            char={currentCharacter.etymology.semantic}
+                            onClick={() => handleCharacterClick(currentCharacter.etymology!.semantic!)}
                             size="1.1em"
                           />
                           {' '}provides the meaning while{' '}
                           <ClickableChar
-                            char={selectedCharacter.etymology.phonetic}
-                            onClick={() => handleCharacterClick(selectedCharacter.etymology!.phonetic!)}
+                            char={currentCharacter.etymology.phonetic}
+                            onClick={() => handleCharacterClick(currentCharacter.etymology!.phonetic!)}
                             size="1.1em"
                           />
                           {' '}provides the pronunciation.
@@ -957,4 +1308,3 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
     </div>
   );
 }
-

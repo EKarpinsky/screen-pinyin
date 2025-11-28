@@ -15,5 +15,6 @@ export const mainConfig: Configuration = {
     'sharp': 'commonjs sharp',
     'electron-store': 'commonjs electron-store',
     'tesseract.js': 'commonjs tesseract.js',
+    'nodejieba': 'commonjs nodejieba',
   },
 };

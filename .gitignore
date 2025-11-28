@@ -38,3 +38,4 @@ src/data/dictionary.txt
 # src/data/hanzi-dictionary.json
 # src/data/hsk-dictionary.json
 src/data/sentences-dictionary.json
+src/data/cedict-dictionary.json
