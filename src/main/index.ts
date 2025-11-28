@@ -81,12 +81,16 @@ const createOverlayWindow = async (): Promise<void> => {
     height,
     x: 0,
     y: 0,
-    fullscreen: true,
-    transparent: true,
     frame: false,
+    transparent: true,
     alwaysOnTop: true,
     skipTaskbar: true,
     resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    closable: true,
+    focusable: true,
     hasShadow: false,
     webPreferences: {
       preload: OVERLAY_WINDOW_PRELOAD_WEBPACK_ENTRY,
@@ -97,7 +101,7 @@ const createOverlayWindow = async (): Promise<void> => {
 
   overlayWindow.loadURL(OVERLAY_WINDOW_WEBPACK_ENTRY);
   overlayWindow.setAlwaysOnTop(true, 'screen-saver');
-  overlayWindow.webContents.openDevTools({ mode: 'detach' });
+  overlayWindow.focus();
 
   overlayWindow.on('closed', () => {
     overlayWindow = null;
