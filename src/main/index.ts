@@ -14,26 +14,32 @@ declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
 declare const OVERLAY_WINDOW_WEBPACK_ENTRY: string;
 declare const OVERLAY_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
-declare const RESULTS_WINDOW_WEBPACK_ENTRY: string;
-declare const RESULTS_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
 
 // Store instance
 let store: Store;
 
-// Window references
+// Window references - only main and overlay now
 let mainWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
-let resultsWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 
 // Store screenshot buffer for cropping
 let currentScreenshotBuffer: Buffer | null = null;
 
-// Store captured/cropped image for results window
+// Store captured/cropped image for results
 let capturedImageData: string | null = null;
 
 // Tesseract worker
 let ocrWorker: Worker | null = null;
+
+// History item type (defined here, NOT in preload)
+type HistoryItem = {
+  id: string;
+  chinese: string;
+  pinyin: string;
+  english: string;
+  timestamp: number;
+};
 
 const initOCRWorker = async (): Promise<void> => {
   if (!ocrWorker) {
@@ -45,14 +51,14 @@ const initOCRWorker = async (): Promise<void> => {
 
 const createMainWindow = (): void => {
   mainWindow = new BrowserWindow({
-    width: 480,
-    height: 520,
+    width: 800,
+    height: 600,
+    minWidth: 600,
+    minHeight: 500,
     show: false,
     frame: true,
     resizable: true,
-    minWidth: 400,
-    minHeight: 450,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#fdfcfa',
     autoHideMenuBar: true,
     webPreferences: {
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
@@ -109,37 +115,15 @@ const createOverlayWindow = async (): Promise<void> => {
   });
 };
 
-const createResultsWindow = (x: number, y: number): void => {
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
-
-  resultsWindow = new BrowserWindow({
-    width: 720,
-    height: 520,
-    x: Math.min(x + 10, screenWidth - 740),
-    y: Math.min(y + 10, screenHeight - 540),
-    frame: false,
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    resizable: false,
-    show: false,
-    backgroundColor: '#fdfcfa',
-    webPreferences: {
-      preload: RESULTS_WINDOW_PRELOAD_WEBPACK_ENTRY,
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-  });
-
-  resultsWindow.loadURL(RESULTS_WINDOW_WEBPACK_ENTRY);
-
-  resultsWindow.once('ready-to-show', () => {
-    resultsWindow?.show();
-  });
-
-  resultsWindow.on('closed', () => {
-    resultsWindow = null;
-  });
+const showMainWindow = (): void => {
+  if (mainWindow) {
+    mainWindow.show();
+    mainWindow.focus();
+  } else {
+    createMainWindow();
+    mainWindow?.show();
+    mainWindow?.focus();
+  }
 };
 
 const createTray = (): void => {
@@ -156,16 +140,8 @@ const createTray = (): void => {
       click: startCaptureWorkflow,
     },
     {
-      label: 'Settings',
-      click: () => {
-        if (mainWindow) {
-          mainWindow.show();
-          mainWindow.focus();
-        } else {
-          createMainWindow();
-          mainWindow?.show();
-        }
-      },
+      label: 'Open App',
+      click: showMainWindow,
     },
     { type: 'separator' },
     { role: 'quit' },
@@ -174,15 +150,7 @@ const createTray = (): void => {
   tray.setToolTip('ScreenPinyin Translator');
   tray.setContextMenu(contextMenu);
 
-  tray.on('click', () => {
-    if (mainWindow) {
-      mainWindow.show();
-      mainWindow.focus();
-    } else {
-      createMainWindow();
-      mainWindow?.show();
-    }
-  });
+  tray.on('click', showMainWindow);
 };
 
 const registerHotkey = (): void => {
@@ -201,15 +169,12 @@ const startCaptureWorkflow = async (): Promise<void> => {
     overlayWindow.close();
     overlayWindow = null;
   }
-  if (resultsWindow) {
-    resultsWindow.close();
-    resultsWindow = null;
-  }
 
   await createOverlayWindow();
 };
 
 const setupIpcHandlers = (): void => {
+  // Screenshot handlers
   ipcMain.handle('get-screenshot', async () => {
     if (currentScreenshotBuffer) {
       return `data:image/png;base64,${currentScreenshotBuffer.toString('base64')}`;
@@ -225,12 +190,28 @@ const setupIpcHandlers = (): void => {
     try {
       const croppedBuffer = await cropImage(currentScreenshotBuffer, selection);
 
-      // Store the captured image for the results window
+      // Store the captured image
       capturedImageData = `data:image/png;base64,${croppedBuffer.toString('base64')}`;
 
       if (overlayWindow) {
         overlayWindow.close();
         overlayWindow = null;
+      }
+
+      // Mark that there's a pending capture to process
+      store.set('pendingCapture', true);
+
+      // Show main window
+      showMainWindow();
+
+      // Send signal to main window to process the capture (if window is already loaded)
+      if (mainWindow && mainWindow.webContents) {
+        // Small delay to ensure React has mounted if window was just created
+        setTimeout(() => {
+          if (mainWindow) {
+            mainWindow.webContents.send('new-capture');
+          }
+        }, 100);
       }
 
       return {
@@ -247,10 +228,6 @@ const setupIpcHandlers = (): void => {
     return capturedImageData;
   });
 
-  ipcMain.handle('show-results', (_event, position: { x: number; y: number }) => {
-    createResultsWindow(position.x, position.y);
-  });
-
   ipcMain.handle('cancel-selection', () => {
     if (overlayWindow) {
       overlayWindow.close();
@@ -258,20 +235,14 @@ const setupIpcHandlers = (): void => {
     }
   });
 
-  ipcMain.handle('close-results', () => {
-    if (resultsWindow) {
-      resultsWindow.close();
-      resultsWindow = null;
-    }
-  });
-
+  // Settings handlers
   ipcMain.handle('get-store-value', (_event, key: string) => {
     return store.get(key);
   });
 
   ipcMain.handle('set-store-value', (_event, key: string, value: unknown) => {
     store.set(key, value);
-    
+
     if (key === 'hotkey') {
       registerHotkey();
       if (tray) {
@@ -281,13 +252,8 @@ const setupIpcHandlers = (): void => {
             click: startCaptureWorkflow,
           },
           {
-            label: 'Settings',
-            click: () => {
-              if (mainWindow) {
-                mainWindow.show();
-                mainWindow.focus();
-              }
-            },
+            label: 'Open App',
+            click: showMainWindow,
           },
           { type: 'separator' },
           { role: 'quit' },
@@ -295,7 +261,7 @@ const setupIpcHandlers = (): void => {
         tray.setContextMenu(contextMenu);
       }
     }
-    
+
     return { success: true };
   });
 
@@ -305,10 +271,11 @@ const setupIpcHandlers = (): void => {
     }
   });
 
+  // OCR handler
   ipcMain.handle('perform-ocr', async (_event, imageData: string) => {
     try {
       await initOCRWorker();
-      
+
       if (!ocrWorker) {
         return { success: false, error: 'OCR worker not initialized' };
       }
@@ -330,6 +297,7 @@ const setupIpcHandlers = (): void => {
     }
   });
 
+  // Translation handler
   ipcMain.handle('translate', async (_event, text: string) => {
     try {
       const apiKey = store.get('azureApiKey', '') as string;
@@ -369,6 +337,21 @@ const setupIpcHandlers = (): void => {
       const translation = translateResponse.data[0]?.translations?.[0]?.text || '';
       const pinyin = pinyinResponse.data[0]?.text || '';
 
+      // Auto-save to history
+      const history = store.get('translationHistory', []) as HistoryItem[];
+      const newItem: HistoryItem = {
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        chinese: text,
+        pinyin,
+        english: translation,
+        timestamp: Date.now(),
+      };
+      history.unshift(newItem);
+      if (history.length > 100) {
+        history.pop();
+      }
+      store.set('translationHistory', history);
+
       return {
         success: true,
         original: text,
@@ -389,6 +372,66 @@ const setupIpcHandlers = (): void => {
       return { success: false, error: error instanceof Error ? error.message : 'Translation failed' };
     }
   });
+
+  // History IPC handlers
+  ipcMain.handle('get-history', () => {
+    const history = store.get('translationHistory', []) as HistoryItem[];
+    return history;
+  });
+
+  ipcMain.handle('add-to-history', (_event, item: Omit<HistoryItem, 'id' | 'timestamp'>) => {
+    const history = store.get('translationHistory', []) as HistoryItem[];
+    const newItem: HistoryItem = {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      chinese: item.chinese,
+      pinyin: item.pinyin,
+      english: item.english,
+      timestamp: Date.now(),
+    };
+    history.unshift(newItem);
+    if (history.length > 100) {
+      history.pop();
+    }
+    store.set('translationHistory', history);
+    return { success: true, item: newItem };
+  });
+
+  ipcMain.handle('delete-history-item', (_event, id: string) => {
+    const history = store.get('translationHistory', []) as HistoryItem[];
+    const filtered = history.filter(item => item.id !== id);
+    store.set('translationHistory', filtered);
+    return { success: true };
+  });
+
+  ipcMain.handle('clear-history', () => {
+    store.set('translationHistory', []);
+    return { success: true };
+  });
+
+  // Check for pending capture (for when window wasn't ready)
+  ipcMain.handle('get-pending-capture', () => {
+    const pending = store.get('pendingCapture', false);
+    // Clear after reading
+    store.delete('pendingCapture');
+    return pending;
+  });
+
+  // Pending results data for history item clicks
+  ipcMain.handle('get-pending-results-data', () => {
+    const data = store.get('pendingResultsData', null);
+    // Clear after reading
+    store.delete('pendingResultsData');
+    return data;
+  });
+
+  ipcMain.handle('show-results-with-data', (_event, data: { chinese: string; pinyin: string; english: string }) => {
+    // Store the data for the results view
+    store.set('pendingResultsData', data);
+    showMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send('show-results-from-history');
+    }
+  });
 };
 
 // App lifecycle
@@ -400,6 +443,7 @@ app.whenReady().then(async () => {
       azureApiKey: '',
       azureRegion: 'eastus',
       hotkey: 'CommandOrControl+Shift+C',
+      translationHistory: [],
     },
   });
 

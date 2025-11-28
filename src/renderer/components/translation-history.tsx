@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import type { HistoryItem } from '../../preload';
+
+// Define HistoryItem type locally (not imported from preload to avoid sandbox issues)
+interface HistoryItem {
+  id: string;
+  chinese: string;
+  pinyin: string;
+  english: string;
+  timestamp: number;
+}
 
 // CSS keyframes for animations
 const keyframesStyle = `

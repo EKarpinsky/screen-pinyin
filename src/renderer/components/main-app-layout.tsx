@@ -2,7 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Copy, Check, X, ArrowLeft, Clock, Settings } from 'lucide-react';
 import { CharacterDetailPanel, CharacterData } from './character-detail-panel';
 import hanziDictionary from '../../data/hanzi-dictionary.json';
-import type { HistoryItem } from '../../preload';
+
+// Define HistoryItem type locally (not imported from preload to avoid sandbox issues)
+interface HistoryItem {
+  id: string;
+  chinese: string;
+  pinyin: string;
+  english: string;
+  timestamp: number;
+}
 
 type ViewType = 'history' | 'settings' | 'results';
 
@@ -127,14 +135,22 @@ export function MainAppLayout() {
     window.electronAPI.onNewCapture(handleNewCapture);
     window.electronAPI.onShowResultsFromHistory(handleShowResultsFromHistory);
 
-    // Check for pending results on mount (from history click before window was open)
+    // Check for pending capture or results on mount (in case window wasn't ready when event was sent)
     const checkPending = async () => {
-      const pending = await window.electronAPI.getPendingResultsData();
-      if (pending) {
+      // First check for pending capture (new screen capture)
+      const pendingCapture = await window.electronAPI.getPendingCapture();
+      if (pendingCapture) {
+        handleNewCapture();
+        return;
+      }
+
+      // Then check for pending history results
+      const pendingResults = await window.electronAPI.getPendingResultsData();
+      if (pendingResults) {
         setResultsData({
-          original: pending.chinese,
-          pinyin: pending.pinyin,
-          translation: pending.english,
+          original: pendingResults.chinese,
+          pinyin: pendingResults.pinyin,
+          translation: pendingResults.english,
         });
         setCurrentView('results');
       }
