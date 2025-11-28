@@ -1,6 +1,15 @@
 import { useEffect, useState, useRef } from "react"
 import { X, ChevronLeft } from "lucide-react"
 import hanziDictionary from "../../data/hanzi-dictionary.json"
+import hskDictionary from "../../data/hsk-dictionary.json"
+
+// HSK dictionary type
+interface HSKEntry {
+  level: number
+  type: 'character' | 'word'
+}
+
+const hskData = hskDictionary as Record<string, HSKEntry>
 
 export interface CharacterData {
   character: string
@@ -117,8 +126,20 @@ function ClickableChar({
           zIndex: 100,
           pointerEvents: 'none',
         }}>
-          <div style={{ fontWeight: 600, marginBottom: 2 }}>
-            {charData.pinyin.length > 0 ? charData.pinyin.join(', ') : '—'}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+            <span style={{ fontWeight: 600 }}>
+              {charData.pinyin.length > 0 ? charData.pinyin.join(', ') : '—'}
+            </span>
+            {hskData[char] && (
+              <span style={{
+                fontSize: 10,
+                padding: '1px 5px',
+                backgroundColor: 'rgba(255,255,255,0.2)',
+                borderRadius: 3,
+              }}>
+                HSK {hskData[char].level}
+              </span>
+            )}
           </div>
           <div style={{ 
             color: 'rgba(255,255,255,0.8)',
@@ -315,15 +336,34 @@ export function CharacterDetailPanel({ data, isOpen, onClose }: CharacterDetailP
             }}>
               Pinyin
             </div>
-            <p style={{
-              fontSize: 22,
-              fontFamily: '"Consolas", "Monaco", monospace',
-              color: 'rgba(26, 26, 26, 0.8)',
-              letterSpacing: '0.03em',
-              margin: 0,
-            }}>
-              {currentData.pinyin.length > 0 ? currentData.pinyin.join(', ') : '—'}
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <p style={{
+                fontSize: 22,
+                fontFamily: '"Consolas", "Monaco", monospace',
+                color: 'rgba(26, 26, 26, 0.8)',
+                letterSpacing: '0.03em',
+                margin: 0,
+              }}>
+                {currentData.pinyin.length > 0 ? currentData.pinyin.join(', ') : '—'}
+              </p>
+              {/* HSK Level Badge */}
+              {hskData[currentData.character] && (
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '3px 10px',
+                  backgroundColor: 'rgba(74, 55, 40, 0.08)',
+                  border: `1px solid ${colors.border}`,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: '0.05em',
+                  color: colors.primary,
+                  borderRadius: 4,
+                }}>
+                  HSK {hskData[currentData.character].level}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Definition */}

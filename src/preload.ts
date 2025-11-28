@@ -1,46 +1,47 @@
 // IMPORTANT: NO TypeScript interfaces or exports in this file!
 // They cause Electron sandbox crashes. See TROUBLESHOOTING.md
+// Keep type annotations minimal - they're compiled away but can cause issues.
 
 const { contextBridge, ipcRenderer } = require('electron');
 
 const electronAPI = {
   // Screenshot and capture
-  getScreenshot: () => ipcRenderer.invoke('get-screenshot'),
-  getCapturedImage: () => ipcRenderer.invoke('get-captured-image'),
-  selectionComplete: (selection: any) => ipcRenderer.invoke('selection-complete', selection),
-  cancelSelection: () => ipcRenderer.invoke('cancel-selection'),
+  getScreenshot: function() { return ipcRenderer.invoke('get-screenshot'); },
+  getCapturedImage: function() { return ipcRenderer.invoke('get-captured-image'); },
+  selectionComplete: function(selection) { return ipcRenderer.invoke('selection-complete', selection); },
+  cancelSelection: function() { return ipcRenderer.invoke('cancel-selection'); },
 
   // Settings
-  getStoreValue: (key: string) => ipcRenderer.invoke('get-store-value', key),
-  setStoreValue: (key: string, value: any) => ipcRenderer.invoke('set-store-value', key, value),
-  closeSettings: () => ipcRenderer.invoke('close-settings'),
+  getStoreValue: function(key) { return ipcRenderer.invoke('get-store-value', key); },
+  setStoreValue: function(key, value) { return ipcRenderer.invoke('set-store-value', key, value); },
+  closeSettings: function() { return ipcRenderer.invoke('close-settings'); },
 
   // OCR and Translation
-  performOCR: (imageData: string) => ipcRenderer.invoke('perform-ocr', imageData),
-  translate: (text: string) => ipcRenderer.invoke('translate', text),
+  performOCR: function(imageData) { return ipcRenderer.invoke('perform-ocr', imageData); },
+  translate: function(text) { return ipcRenderer.invoke('translate', text); },
 
   // History API
-  getHistory: () => ipcRenderer.invoke('get-history'),
-  addToHistory: (item: any) => ipcRenderer.invoke('add-to-history', item),
-  deleteHistoryItem: (id: string) => ipcRenderer.invoke('delete-history-item', id),
-  clearHistory: () => ipcRenderer.invoke('clear-history'),
+  getHistory: function() { return ipcRenderer.invoke('get-history'); },
+  addToHistory: function(item) { return ipcRenderer.invoke('add-to-history', item); },
+  deleteHistoryItem: function(id) { return ipcRenderer.invoke('delete-history-item', id); },
+  clearHistory: function() { return ipcRenderer.invoke('clear-history'); },
 
   // Results from history and pending capture
-  getPendingCapture: () => ipcRenderer.invoke('get-pending-capture'),
-  getPendingResultsData: () => ipcRenderer.invoke('get-pending-results-data'),
-  showResultsWithData: (data: any) => ipcRenderer.invoke('show-results-with-data', data),
+  getPendingCapture: function() { return ipcRenderer.invoke('get-pending-capture'); },
+  getPendingResultsData: function() { return ipcRenderer.invoke('get-pending-results-data'); },
+  showResultsWithData: function(data) { return ipcRenderer.invoke('show-results-with-data', data); },
 
   // Event listeners for single-window mode
-  onNewCapture: (callback: () => void) => {
+  onNewCapture: function(callback) {
     ipcRenderer.on('new-capture', callback);
   },
-  offNewCapture: (callback: () => void) => {
+  offNewCapture: function(callback) {
     ipcRenderer.removeListener('new-capture', callback);
   },
-  onShowResultsFromHistory: (callback: () => void) => {
+  onShowResultsFromHistory: function(callback) {
     ipcRenderer.on('show-results-from-history', callback);
   },
-  offShowResultsFromHistory: (callback: () => void) => {
+  offShowResultsFromHistory: function(callback) {
     ipcRenderer.removeListener('show-results-from-history', callback);
   },
 };
