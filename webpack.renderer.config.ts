@@ -31,5 +31,10 @@ export const rendererConfig: Configuration = {
       '@': path.resolve(__dirname, 'src'),
     },
   },
+  // Prevent webpack from injecting __dirname/__filename which break in Electron sandbox
+  node: {
+    __dirname: false,
+    __filename: false,
+  },
 };
 

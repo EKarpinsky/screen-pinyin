@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { X, Clock, Settings, Search } from 'lucide-react';
+import { X, Clock, Settings, Search, Check, Minus, Square, Copy } from 'lucide-react';
 import { SearchView } from './search-view';
 import { ResultsViewWithDetail } from './results-view-with-detail';
+import { TranslationHistory } from './translation-history';
+import { LightbulbToggle } from './lightbulb-toggle';
+import { ScrollArea } from './ui/scroll-area';
+import { useTheme } from '../contexts/theme-context';
 import hanziDictionary from '../../data/hanzi-dictionary.json';
 
 // Define types locally (not imported from preload to avoid sandbox issues)
@@ -29,23 +33,29 @@ interface CharacterData {
 
 type ViewType = 'history' | 'settings' | 'search' | 'results';
 
+type ViewMode = 'translation' | 'lookup';
+
 interface ResultsData {
   original: string;
   pinyin: string;
   translation: string;
+  mode: ViewMode;
 }
 
-const colors = {
-  background: '#f7f5f0',
-  card: '#fdfcfa',
-  foreground: '#1a1a1a',
-  muted: '#6b6b6b',
-  border: '#d4d0c8',
-  input: '#efece6',
-  primary: '#4a3728',
-  sidebar: '#f0ebe4',
-  sidebarActive: '#e8e2d9',
-};
+// Use CSS variables for dark mode compatibility
+const getColors = () => ({
+  background: 'var(--background)',
+  card: 'var(--card)',
+  foreground: 'var(--foreground)',
+  muted: 'var(--muted-foreground)',
+  border: 'var(--border)',
+  input: 'var(--input)',
+  primary: 'var(--primary)',
+  sidebar: 'var(--sidebar)',
+  sidebarActive: 'var(--sidebar-active)',
+});
+
+const colors = getColors();
 
 const dictionary = hanziDictionary as Record<string, CharacterData>;
 
@@ -80,6 +90,7 @@ const AZURE_REGIONS = [
 
 export function MainAppLayout() {
   console.log('[MainAppLayout] Rendering...');
+  const { isDark, toggleTheme } = useTheme();
   const [currentView, setCurrentView] = useState<ViewType>('history');
   const [resultsData, setResultsData] = useState<ResultsData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -126,6 +137,7 @@ export function MainAppLayout() {
           original: translateResult.original || ocrResult.text,
           pinyin: translateResult.pinyin || '',
           translation: translateResult.translation || '',
+          mode: 'translation',
         });
         setIsProcessing(false);
       } catch (err) {
@@ -141,6 +153,7 @@ export function MainAppLayout() {
           original: pending.chinese,
           pinyin: pending.pinyin,
           translation: pending.english,
+          mode: 'translation',
         });
         setCurrentView('results');
       }
@@ -166,6 +179,7 @@ export function MainAppLayout() {
           original: pendingResults.chinese,
           pinyin: pendingResults.pinyin,
           translation: pendingResults.english,
+          mode: 'translation',
         });
         setCurrentView('results');
       }
@@ -196,6 +210,7 @@ export function MainAppLayout() {
       original: item.chinese,
       pinyin: item.pinyin,
       translation: item.english,
+      mode: 'translation',
     });
     setCurrentView('results');
   };
@@ -209,16 +224,14 @@ export function MainAppLayout() {
   // Handle search item click
   const handleSearchItemClick = (item: HistoryItem | { type: 'dictionary'; data: { character: string; pinyin: string[]; definition: string } }) => {
     if ('type' in item && item.type === 'dictionary') {
-      // Dictionary entry clicked - show character detail panel
-      const charData = dictionary[item.data.character];
-      if (charData) {
-        setResultsData({
-          original: item.data.character,
-          pinyin: item.data.pinyin.join(', '),
-          translation: item.data.definition,
-        });
-        setCurrentView('results');
-      }
+      // Dictionary entry clicked - show character/word detail directly (lookup mode)
+      setResultsData({
+        original: item.data.character,
+        pinyin: item.data.pinyin.join(', '),
+        translation: item.data.definition,
+        mode: 'lookup',
+      });
+      setCurrentView('results');
     } else {
       // History item clicked
       handleHistoryItemClick(item as HistoryItem);
@@ -243,6 +256,7 @@ export function MainAppLayout() {
         original: translateResult.original || text,
         pinyin: translateResult.pinyin || '',
         translation: translateResult.translation || '',
+        mode: 'translation',
       });
       setIsProcessing(false);
 
@@ -261,33 +275,58 @@ export function MainAppLayout() {
   return (
     <div style={{
       display: 'flex',
+      flexDirection: 'column',
       height: '100vh',
       backgroundColor: colors.card,
       fontFamily: '"Segoe UI", system-ui, -apple-system, sans-serif',
     }}>
       <style>{keyframesStyle}</style>
 
-      {/* Sidebar */}
+      {/* Custom Title Bar */}
       <div style={{
-        width: 60,
-        backgroundColor: colors.sidebar,
-        borderRight: `1px solid ${colors.border}`,
+        // @ts-ignore - webkit property for Electron drag
+        WebkitAppRegion: 'drag',
+        height: 32,
         display: 'flex',
-        flexDirection: 'column',
         alignItems: 'center',
-        paddingTop: 16,
-        gap: 8,
+        justifyContent: 'flex-end',
+        backgroundColor: colors.sidebar,
+        borderBottom: `1px solid ${colors.border}`,
+        flexShrink: 0,
       }}>
-        {/* Draggable area at top */}
+        {/* Window Controls */}
         <div style={{
-          // @ts-ignore - webkit property for Electron drag
-          WebkitAppRegion: 'drag',
-          height: 24,
-          width: '100%',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-        }} />
+          // @ts-ignore - webkit property for Electron no-drag
+          WebkitAppRegion: 'no-drag',
+          display: 'flex',
+          height: '100%',
+        }}>
+          <WindowControlButton onClick={() => window.electronAPI.windowMinimize()} title="Minimize">
+            <Minus size={14} />
+          </WindowControlButton>
+          <WindowControlButton onClick={() => window.electronAPI.windowMaximize()} title="Maximize">
+            <Square size={12} />
+          </WindowControlButton>
+          <WindowControlButton onClick={() => window.electronAPI.windowClose()} title="Close" isClose>
+            <X size={14} />
+          </WindowControlButton>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        {/* Sidebar */}
+        <div style={{
+          width: 60,
+          backgroundColor: colors.sidebar,
+          borderRight: `1px solid ${colors.border}`,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          paddingTop: 16,
+          paddingBottom: 16,
+          gap: 8,
+        }}>
 
         <SidebarButton
           icon={<Clock size={22} />}
@@ -307,31 +346,50 @@ export function MainAppLayout() {
           onClick={() => setCurrentView('settings')}
           tooltip="Settings"
         />
+
+        {/* Spacer */}
+        <div style={{ flex: 1 }} />
+
+        {/* Theme toggle */}
+        <div style={{
+          borderTop: `1px solid ${colors.border}`,
+          paddingTop: 12,
+          width: '100%',
+          display: 'flex',
+          justifyContent: 'center',
+        }}>
+          <LightbulbToggle
+            isOn={!isDark}
+            onToggle={toggleTheme}
+            size={22}
+          />
+        </div>
       </div>
 
-      {/* Main Content */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {currentView === 'history' && (
-          <HistoryView onItemClick={handleHistoryItemClick} />
-        )}
-        {currentView === 'search' && (
-          <SearchView
-            historyItems={historyItems}
-            onItemClick={handleSearchItemClick}
-            onTranslateText={handleTranslateText}
-          />
-        )}
-        {currentView === 'settings' && (
-          <SettingsView />
-        )}
-        {currentView === 'results' && (
-          <ResultsViewWrapper
-            data={resultsData}
-            isProcessing={isProcessing}
-            error={processError}
-            onBack={handleBackToHistory}
-          />
-        )}
+        {/* Main Content */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', backgroundColor: colors.background }}>
+          {currentView === 'history' && (
+            <TranslationHistory onItemClick={handleHistoryItemClick} />
+          )}
+          {currentView === 'search' && (
+            <SearchView
+              historyItems={historyItems}
+              onItemClick={handleSearchItemClick}
+              onTranslateText={handleTranslateText}
+            />
+          )}
+          {currentView === 'settings' && (
+            <SettingsView />
+          )}
+          {currentView === 'results' && (
+            <ResultsViewWrapper
+              data={resultsData}
+              isProcessing={isProcessing}
+              error={processError}
+              onBack={handleBackToHistory}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
@@ -367,7 +425,7 @@ function SidebarButton({
         justifyContent: 'center',
         border: 'none',
         borderRadius: 8,
-        backgroundColor: isActive ? colors.sidebarActive : isHovered ? 'rgba(0,0,0,0.04)' : 'transparent',
+        backgroundColor: isActive ? colors.sidebarActive : isHovered ? 'var(--hover-bg)' : 'transparent',
         color: isActive ? colors.foreground : colors.muted,
         cursor: 'pointer',
         transition: 'all 0.15s',
@@ -378,197 +436,43 @@ function SidebarButton({
   );
 }
 
-// History View Component
-function HistoryView({ onItemClick }: { onItemClick: (item: HistoryItem) => void }) {
-  const [items, setItems] = useState<HistoryItem[]>([]);
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+// Window Control Button Component
+function WindowControlButton({
+  onClick,
+  title,
+  isClose = false,
+  children,
+}: {
+  onClick: () => void;
+  title: string;
+  isClose?: boolean;
+  children: React.ReactNode;
+}) {
+  const [isHovered, setIsHovered] = useState(false);
 
-  useEffect(() => {
-    loadHistory();
-  }, []);
-
-  const loadHistory = async () => {
-    try {
-      const history = await window.electronAPI.getHistory();
-      setItems(history);
-    } catch (error) {
-      console.error('Failed to load history:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteItem = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    await window.electronAPI.deleteHistoryItem(id);
-    setItems(items.filter(item => item.id !== id));
-  };
-
-  const handleClearAll = async () => {
-    await window.electronAPI.clearHistory();
-    setItems([]);
-  };
-
-  const isEmpty = items.length === 0;
-
-  if (loading) {
-    return (
-      <div style={{
-        flex: 1,
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      title={title}
+      style={{
+        width: 46,
+        height: '100%',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: colors.muted,
-      }}>
-        Loading...
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Header */}
-      <div style={{
-        borderBottom: `1px solid ${colors.border}`,
-        padding: '20px 28px',
-        animation: 'fadeIn 0.3s ease-out',
-      }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}>
-          <h2 style={{
-            color: colors.foreground,
-            fontSize: '1.35rem',
-            fontWeight: 500,
-            letterSpacing: '-0.01em',
-            margin: 0,
-          }}>
-            Translation History
-          </h2>
-          {!isEmpty && (
-            <button
-              onClick={handleClearAll}
-              style={{
-                fontSize: '0.85rem',
-                color: colors.muted,
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                padding: '4px 8px',
-                borderRadius: 4,
-                transition: 'color 0.2s',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = '#c53030')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = colors.muted)}
-            >
-              Clear All
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Content */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        {isEmpty ? (
-          <div style={{
-            display: 'flex',
-            height: '100%',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 32,
-            animation: 'fadeIn 0.4s ease-out',
-          }}>
-            <div style={{
-              textAlign: 'center',
-              color: colors.muted,
-              fontSize: '0.95rem',
-              lineHeight: 1.6,
-            }}>
-              No translations yet.
-              <br />
-              Press <kbd style={{
-                border: `1px solid ${colors.border}`,
-                backgroundColor: colors.input,
-                padding: '2px 6px',
-                fontSize: '0.8rem',
-                borderRadius: 3,
-                margin: '0 4px',
-              }}>Ctrl+Shift+C</kbd> to capture text.
-            </div>
-          </div>
-        ) : (
-          <div style={{ padding: '8px 0' }}>
-            {items.map((item, index) => (
-              <div
-                key={item.id}
-                onClick={() => onItemClick(item)}
-                onMouseEnter={() => setHoveredId(item.id)}
-                onMouseLeave={() => setHoveredId(null)}
-                style={{
-                  position: 'relative',
-                  cursor: 'pointer',
-                  borderBottom: `1px solid ${colors.border}`,
-                  padding: '20px 28px',
-                  transition: 'background-color 0.2s',
-                  backgroundColor: hoveredId === item.id ? 'rgba(0, 0, 0, 0.02)' : 'transparent',
-                  animation: `slideUp 0.3s ${index * 0.05}s ease-out backwards`,
-                }}
-              >
-                {/* Delete button */}
-                <button
-                  onClick={(e) => handleDeleteItem(item.id, e)}
-                  style={{
-                    position: 'absolute',
-                    right: 20,
-                    top: 20,
-                    opacity: hoveredId === item.id ? 1 : 0,
-                    transition: 'opacity 0.2s',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    padding: 4,
-                    color: colors.muted,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = '#c53030')}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = colors.muted)}
-                >
-                  <X size={16} />
-                </button>
-
-                {/* Chinese text */}
-                <div style={{
-                  marginBottom: 6,
-                  paddingRight: 32,
-                  color: colors.foreground,
-                  fontSize: '1.5rem',
-                  fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Source Han Sans SC", sans-serif',
-                  fontWeight: 500,
-                  letterSpacing: '0.01em',
-                  lineHeight: 1.3,
-                }}>
-                  {item.chinese}
-                </div>
-
-                {/* English translation */}
-                <div style={{
-                  color: colors.muted,
-                  fontSize: '0.875rem',
-                  lineHeight: 1.5,
-                }}>
-                  {item.english}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
+        border: 'none',
+        backgroundColor: isHovered 
+          ? (isClose ? '#e81123' : 'var(--hover-bg)') 
+          : 'transparent',
+        color: isHovered && isClose ? 'white' : 'var(--muted-foreground)',
+        cursor: 'pointer',
+        transition: 'all 0.1s',
+      }}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -618,12 +522,12 @@ function SettingsView() {
   }
 
   return (
-    <div style={{
-      padding: '28px 36px',
-      overflowY: 'auto',
-      animation: 'fadeIn 0.3s ease-out',
-    }}>
-      {/* Header */}
+    <ScrollArea style={{ height: '100%' }}>
+      <div style={{
+        padding: '28px 36px',
+        animation: 'fadeIn 0.3s ease-out',
+      }}>
+        {/* Header */}
       <div style={{ marginBottom: 28 }}>
         <h2 style={{
           fontSize: '1.35rem',
@@ -751,7 +655,7 @@ function SettingsView() {
         {/* Hotkey Display */}
         <div style={{
           border: `1px solid ${colors.border}`,
-          backgroundColor: 'rgba(232, 228, 220, 0.3)',
+          backgroundColor: 'var(--muted)',
           padding: 16,
         }}>
           <div style={{
@@ -809,7 +713,8 @@ function SettingsView() {
           {saved ? 'Saved!' : 'Save Settings'}
         </button>
       </div>
-    </div>
+      </div>
+    </ScrollArea>
   );
 }
 

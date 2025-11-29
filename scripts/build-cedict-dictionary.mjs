@@ -150,9 +150,12 @@ async function parseCedict() {
     // Skip comments and empty lines
     if (line.startsWith('#') || !line.trim()) continue;
     
+    // Trim whitespace and carriage returns
+    const cleanLine = line.trim();
+    
     // Parse entry: Traditional Simplified [pinyin] /def1/def2/.../
     // Regex: captures traditional, simplified, pinyin (in brackets), and definitions
-    const match = line.match(/^(\S+)\s+(\S+)\s+\[([^\]]+)\]\s+\/(.+)\/$/);
+    const match = cleanLine.match(/^(\S+)\s+(\S+)\s+\[([^\]]+)\]\s+\/(.+)\/$/);
     
     if (match) {
       const [, traditional, simplified, pinyinRaw, definitionsRaw] = match;

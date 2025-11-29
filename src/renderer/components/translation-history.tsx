@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ScrollArea } from './ui/scroll-area';
 
 // Define HistoryItem type locally (not imported from preload to avoid sandbox issues)
 interface HistoryItem {
@@ -9,26 +10,164 @@ interface HistoryItem {
   timestamp: number;
 }
 
-// CSS keyframes for animations
+interface TranslationHistoryProps {
+  items?: HistoryItem[];
+  onItemClick?: (item: HistoryItem) => void;
+  onDeleteItem?: (id: string) => void;
+  onClearAll?: () => void;
+}
+
+// CSS keyframes for magazine-style animations
 const keyframesStyle = `
   @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
   }
   @keyframes slideUp {
-    from { opacity: 0; transform: translateY(20px); }
+    from { opacity: 0; transform: translateY(30px); }
     to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-40px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes slideInRight {
+    from { opacity: 0; transform: translateX(40px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.6; }
   }
 `;
 
-export function TranslationHistory() {
-  const [items, setItems] = useState<HistoryItem[]>([]);
+function formatDate(timestamp: number): string {
+  const date = new Date(timestamp);
+  const month = date.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
+  const day = date.getDate();
+  return `${month} ${day}`;
+}
+
+function formatTime(timestamp: number): string {
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
+// Get dynamic font size based on text length - shorter = BIGGER
+function getDynamicFontSize(text: string): string {
+  const len = text.length;
+  if (len <= 2) return '5rem';
+  if (len <= 4) return '3.5rem';
+  if (len <= 8) return '2.5rem';
+  if (len <= 12) return '1.8rem';
+  return '1.5rem';
+}
+
+// Get card width pattern for visual rhythm
+function getCardWidth(index: number): string {
+  const patterns = ['85%', '70%', '55%', '75%', '60%', '80%'];
+  return patterns[index % patterns.length];
+}
+
+// Get card alignment for asymmetric layout
+function getCardAlignment(index: number): 'flex-start' | 'flex-end' | 'center' {
+  const patterns: ('flex-start' | 'flex-end' | 'center')[] = ['flex-start', 'flex-end', 'center', 'flex-end', 'flex-start', 'center'];
+  return patterns[index % patterns.length];
+}
+
+// Get animation based on alignment
+function getAnimation(index: number): string {
+  const alignment = getCardAlignment(index);
+  if (alignment === 'flex-start') return 'slideInLeft';
+  if (alignment === 'flex-end') return 'slideInRight';
+  return 'slideUp';
+}
+
+// Search Icon component
+function SearchIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="11" cy="11" r="8"></circle>
+      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+    </svg>
+  );
+}
+
+// X Icon component
+function XIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="18" y1="6" x2="6" y2="18"></line>
+      <line x1="6" y1="6" x2="18" y2="18"></line>
+    </svg>
+  );
+}
+
+export function TranslationHistory({
+  items: propItems,
+  onItemClick,
+  onDeleteItem,
+  onClearAll,
+}: TranslationHistoryProps = {}) {
+  const [items, setItems] = useState<HistoryItem[]>(propItems || []);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!propItems);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Use CSS variables for colors (supports dark mode)
+  const colors = {
+    background: 'var(--background)',
+    foreground: 'var(--foreground)',
+    card: 'var(--card)',
+    muted: 'var(--muted)',
+    mutedForeground: 'var(--muted-foreground)',
+    secondaryForeground: 'var(--secondary-foreground)',
+    tertiaryForeground: 'var(--tertiary-foreground)',
+    border: 'var(--border)',
+    input: 'var(--input)',
+    primary: 'var(--primary)',
+    destructive: 'var(--destructive)',
+    hoverBg: 'var(--hover-bg)',
+    accent: 'var(--accent)',
+  };
 
   useEffect(() => {
-    loadHistory();
-  }, []);
+    if (!propItems) {
+      loadHistory();
+    }
+  }, [propItems]);
+
+  useEffect(() => {
+    if (propItems) {
+      setItems(propItems);
+    }
+  }, [propItems]);
 
   const loadHistory = async () => {
     try {
@@ -41,233 +180,500 @@ export function TranslationHistory() {
     }
   };
 
+  // Filter items based on search query
+  const filteredItems = useMemo(() => {
+    if (!searchQuery.trim()) return items;
+
+    const query = searchQuery.toLowerCase();
+    return items.filter(
+      (item) =>
+        item.chinese.toLowerCase().includes(query) ||
+        item.english.toLowerCase().includes(query) ||
+        item.pinyin?.toLowerCase().includes(query)
+    );
+  }, [items, searchQuery]);
+
   const handleItemClick = async (item: HistoryItem) => {
-    await window.electronAPI.showResultsWithData({
-      chinese: item.chinese,
-      pinyin: item.pinyin,
-      english: item.english,
-      x: 100,
-      y: 100,
-    });
+    if (onItemClick) {
+      onItemClick(item);
+    } else {
+      await window.electronAPI.showResultsWithData({
+        chinese: item.chinese,
+        pinyin: item.pinyin,
+        english: item.english,
+        x: 100,
+        y: 100,
+      });
+    }
   };
 
   const handleDeleteItem = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    await window.electronAPI.deleteHistoryItem(id);
+    if (onDeleteItem) {
+      onDeleteItem(id);
+    } else {
+      await window.electronAPI.deleteHistoryItem(id);
+    }
     setItems(items.filter(item => item.id !== id));
   };
 
   const handleClearAll = async () => {
-    await window.electronAPI.clearHistory();
+    if (onClearAll) {
+      onClearAll();
+    } else {
+      await window.electronAPI.clearHistory();
+    }
     setItems([]);
   };
 
   const isEmpty = items.length === 0;
-
-  // Styles
-  const containerStyle: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100vh',
-    backgroundColor: '#fdfcfa',
-    fontFamily: '"Segoe UI", system-ui, -apple-system, sans-serif',
-  };
-
-  const headerStyle: React.CSSProperties = {
-    borderBottom: '1px solid #d4d0c8',
-    padding: '24px 32px',
-    animation: 'fadeIn 0.3s ease-out',
-  };
-
-  const headerContentStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  };
-
-  const titleStyle: React.CSSProperties = {
-    color: '#1a1a1a',
-    fontSize: '1.5rem',
-    fontWeight: 500,
-    letterSpacing: '-0.01em',
-    margin: 0,
-  };
-
-  const clearAllButtonStyle: React.CSSProperties = {
-    fontSize: '0.875rem',
-    color: '#6b6b6b',
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    padding: '4px 8px',
-    borderRadius: '4px',
-    transition: 'color 0.2s',
-  };
-
-  const contentStyle: React.CSSProperties = {
-    flex: 1,
-    overflowY: 'auto',
-  };
-
-  const emptyStateStyle: React.CSSProperties = {
-    display: 'flex',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '32px',
-    animation: 'fadeIn 0.4s ease-out',
-  };
-
-  const emptyTextStyle: React.CSSProperties = {
-    textAlign: 'center',
-    color: '#6b6b6b',
-    fontSize: '1rem',
-    lineHeight: 1.6,
-  };
-
-  const listStyle: React.CSSProperties = {
-    padding: '8px 0',
-  };
-
-  const getItemStyle = (index: number, isHovered: boolean): React.CSSProperties => ({
-    position: 'relative',
-    cursor: 'pointer',
-    borderBottom: '1px solid #d4d0c8',
-    padding: '24px 32px',
-    transition: 'background-color 0.2s',
-    backgroundColor: isHovered ? 'rgba(0, 0, 0, 0.02)' : 'transparent',
-    animation: `slideUp 0.3s ${index * 0.05}s ease-out backwards`,
-  });
-
-  const deleteButtonStyle = (isVisible: boolean): React.CSSProperties => ({
-    position: 'absolute',
-    right: '24px',
-    top: '24px',
-    opacity: isVisible ? 1 : 0,
-    transition: 'opacity 0.2s',
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    padding: '4px',
-    color: '#6b6b6b',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  });
-
-  const chineseTextStyle: React.CSSProperties = {
-    marginBottom: '8px',
-    paddingRight: '32px',
-    color: '#1a1a1a',
-    fontSize: '1.75rem',
-    fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Source Han Sans SC", sans-serif',
-    fontWeight: 500,
-    letterSpacing: '0.01em',
-    lineHeight: 1.3,
-  };
-
-  const englishTextStyle: React.CSSProperties = {
-    color: '#6b6b6b',
-    fontSize: '0.9rem',
-    lineHeight: 1.5,
-  };
-
-  const loadingStyle: React.CSSProperties = {
-    display: 'flex',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: '#6b6b6b',
-  };
+  const hasNoResults = !isEmpty && filteredItems.length === 0;
 
   if (loading) {
     return (
-      <div style={containerStyle}>
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        backgroundColor: colors.background,
+        fontFamily: '"Segoe UI", system-ui, -apple-system, sans-serif',
+      }}>
         <style>{keyframesStyle}</style>
-        <div style={loadingStyle}>Loading...</div>
+        <div style={{
+          display: 'flex',
+          height: '100%',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: colors.mutedForeground,
+        }}>
+          <span style={{ animation: 'pulse 2s ease-in-out infinite' }}>Loading...</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={containerStyle}>
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100%',
+      backgroundColor: colors.background,
+      fontFamily: '"Segoe UI", system-ui, -apple-system, sans-serif',
+      overflow: 'hidden',
+    }}>
       <style>{keyframesStyle}</style>
-      
-      {/* Header */}
-      <div style={headerStyle}>
-        <div style={headerContentStyle}>
-          <h2 style={titleStyle}>Translation History</h2>
+
+      {/* Header - Magazine masthead style */}
+      <div
+        style={{
+          padding: '32px 40px 24px',
+          borderBottom: `1px solid ${colors.border}`,
+          animation: 'fadeIn 0.4s ease-out',
+        }}
+      >
+        <div style={{
+          display: 'flex',
+          alignItems: 'baseline',
+          justifyContent: 'space-between',
+          marginBottom: !isEmpty ? '20px' : 0,
+        }}>
+          <div>
+            <h1 style={{
+              color: colors.foreground,
+              fontSize: '2.5rem',
+              fontWeight: 300,
+              letterSpacing: '-0.03em',
+              margin: 0,
+              lineHeight: 1,
+            }}>
+              History
+            </h1>
+            {!isEmpty && (
+              <p style={{
+                color: colors.tertiaryForeground,
+                fontSize: '0.75rem',
+                letterSpacing: '0.15em',
+                textTransform: 'uppercase',
+                marginTop: '8px',
+                fontWeight: 500,
+              }}>
+                {filteredItems.length} translation{filteredItems.length !== 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
           {!isEmpty && (
             <button
               onClick={handleClearAll}
-              style={clearAllButtonStyle}
-              onMouseEnter={(e) => (e.currentTarget.style.color = '#c53030')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = '#6b6b6b')}
+              style={{
+                fontSize: '0.7rem',
+                color: colors.tertiaryForeground,
+                background: 'none',
+                border: `1px solid ${colors.border}`,
+                cursor: 'pointer',
+                padding: '8px 16px',
+                borderRadius: '4px',
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                fontWeight: 500,
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = colors.destructive;
+                e.currentTarget.style.color = colors.destructive;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = colors.border;
+                e.currentTarget.style.color = colors.tertiaryForeground;
+              }}
             >
               Clear All
             </button>
           )}
         </div>
-      </div>
 
-      {/* Content */}
-      <div style={contentStyle}>
-        {isEmpty ? (
-          <div style={emptyStateStyle}>
-            <div style={emptyTextStyle}>
-              No translations yet.
-              <br />
-              Start by capturing and translating text.
+        {/* Search bar - minimal and editorial */}
+        {!isEmpty && (
+          <div style={{ position: 'relative', maxWidth: '400px' }}>
+            <div style={{
+              position: 'absolute',
+              left: '0',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: colors.tertiaryForeground,
+            }}>
+              <SearchIcon size={14} />
             </div>
-          </div>
-        ) : (
-          <div style={listStyle}>
-            {items.map((item, index) => (
-              <div
-                key={item.id}
-                style={getItemStyle(index, hoveredId === item.id)}
-                onClick={() => handleItemClick(item)}
-                onMouseEnter={() => setHoveredId(item.id)}
-                onMouseLeave={() => setHoveredId(null)}
+            <input
+              type="text"
+              placeholder="Search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: '100%',
+                border: 'none',
+                borderBottom: `1px solid ${colors.border}`,
+                backgroundColor: 'transparent',
+                padding: '8px 32px 8px 24px',
+                fontSize: '0.875rem',
+                color: colors.foreground,
+                outline: 'none',
+                transition: 'border-color 0.2s',
+                boxSizing: 'border-box',
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = colors.primary;
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = colors.border;
+              }}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                style={{
+                  position: 'absolute',
+                  right: '0',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: colors.tertiaryForeground,
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = colors.foreground)}
+                onMouseLeave={(e) => (e.currentTarget.style.color = colors.tertiaryForeground)}
               >
-                {/* Delete button - appears on hover */}
-                <button
-                  onClick={(e) => handleDeleteItem(item.id, e)}
-                  style={deleteButtonStyle(hoveredId === item.id)}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = '#c53030')}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = '#6b6b6b')}
-                  aria-label="Delete translation"
-                >
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                  </svg>
-                </button>
-
-                {/* Chinese text - prominent */}
-                <div style={chineseTextStyle}>
-                  {item.chinese}
-                </div>
-
-                {/* English translation - secondary */}
-                <div style={englishTextStyle}>
-                  {item.english}
-                </div>
-              </div>
-            ))}
+                <XIcon size={14} />
+              </button>
+            )}
           </div>
         )}
       </div>
+
+      {/* Content */}
+      <ScrollArea style={{ flex: 1 }}>
+        {isEmpty ? (
+          /* Empty state - dramatic and editorial */
+          <div style={{
+            display: 'flex',
+            height: '100%',
+            minHeight: '400px',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '60px 40px',
+            animation: 'fadeIn 0.6s ease-out',
+            position: 'relative',
+          }}>
+            {/* Large watermark character */}
+            <div style={{
+              position: 'absolute',
+              fontSize: '20rem',
+              fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
+              fontWeight: 100,
+              color: colors.border,
+              opacity: 0.3,
+              userSelect: 'none',
+              pointerEvents: 'none',
+              animation: 'float 6s ease-in-out infinite',
+            }}>
+              未
+            </div>
+            
+            <div style={{ 
+              maxWidth: '360px', 
+              textAlign: 'center',
+              position: 'relative',
+              zIndex: 1,
+            }}>
+              <h2 style={{
+                color: colors.foreground,
+                fontSize: '1.75rem',
+                fontWeight: 300,
+                letterSpacing: '-0.02em',
+                marginBottom: '16px',
+                animation: 'slideUp 0.5s ease-out 0.2s backwards',
+              }}>
+                未开始
+              </h2>
+              <p style={{
+                color: colors.tertiaryForeground,
+                fontSize: '0.9rem',
+                lineHeight: 1.8,
+                margin: 0,
+                animation: 'slideUp 0.5s ease-out 0.3s backwards',
+              }}>
+                Your translation journey begins here.<br />
+                Capture text from your screen to start.
+              </p>
+            </div>
+          </div>
+        ) : hasNoResults ? (
+          <div style={{
+            display: 'flex',
+            height: '100%',
+            minHeight: '200px',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '60px 40px',
+            animation: 'fadeIn 0.3s ease-out',
+          }}>
+            <div style={{ textAlign: 'center' }}>
+              <p style={{
+                color: colors.tertiaryForeground,
+                fontSize: '1rem',
+                lineHeight: 1.6,
+                margin: 0,
+              }}>
+                No translations match "<span style={{ color: colors.foreground }}>{searchQuery}</span>"
+              </p>
+            </div>
+          </div>
+        ) : (
+          /* Magazine-style editorial layout */
+          <div style={{ 
+            padding: '40px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '24px',
+          }}>
+            {filteredItems.map((item, index) => {
+              const isHovered = hoveredId === item.id;
+              const cardWidth = getCardWidth(index);
+              const alignment = getCardAlignment(index);
+              const animation = getAnimation(index);
+              const fontSize = getDynamicFontSize(item.chinese);
+              const watermarkChar = item.chinese[0];
+              
+              return (
+                <div
+                  key={item.id}
+                  style={{
+                    display: 'flex',
+                    justifyContent: alignment,
+                    animation: `${animation} 0.5s ${index * 0.08}s ease-out backwards`,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: cardWidth,
+                      minWidth: '280px',
+                      maxWidth: '100%',
+                      position: 'relative',
+                      cursor: 'pointer',
+                      backgroundColor: isHovered ? colors.card : 'transparent',
+                      border: `1px solid ${isHovered ? colors.border : 'transparent'}`,
+                      borderRadius: '8px',
+                      padding: '32px',
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                      transform: isHovered ? 'translateY(-4px) rotate(-0.5deg)' : 'none',
+                      boxShadow: isHovered 
+                        ? '0 20px 40px rgba(0,0,0,0.08), 0 8px 16px rgba(0,0,0,0.06)' 
+                        : 'none',
+                      overflow: 'hidden',
+                    }}
+                    onClick={() => handleItemClick(item)}
+                    onMouseEnter={() => setHoveredId(item.id)}
+                    onMouseLeave={() => setHoveredId(null)}
+                  >
+                    {/* Watermark character */}
+                    <div style={{
+                      position: 'absolute',
+                      top: '-20%',
+                      right: alignment === 'flex-end' ? '10%' : 'auto',
+                      left: alignment === 'flex-start' ? '-10%' : alignment === 'center' ? '50%' : 'auto',
+                      transform: alignment === 'center' ? 'translateX(-50%)' : 'none',
+                      fontSize: '12rem',
+                      fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
+                      fontWeight: 100,
+                      color: colors.border,
+                      opacity: isHovered ? 0.2 : 0.08,
+                      userSelect: 'none',
+                      pointerEvents: 'none',
+                      transition: 'opacity 0.3s',
+                      lineHeight: 1,
+                    }}>
+                      {watermarkChar}
+                    </div>
+
+                    {/* Content */}
+                    <div style={{ position: 'relative', zIndex: 1 }}>
+                      {/* Magazine-style date */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        marginBottom: '16px',
+                      }}>
+                        <span style={{
+                          fontSize: '0.65rem',
+                          fontFamily: '"Consolas", "Monaco", monospace',
+                          color: colors.tertiaryForeground,
+                          letterSpacing: '0.1em',
+                          textTransform: 'uppercase',
+                        }}>
+                          {formatDate(item.timestamp)}
+                        </span>
+                        <span style={{
+                          fontSize: '0.55rem',
+                          color: colors.tertiaryForeground,
+                          opacity: 0.5,
+                        }}>
+                          •
+                        </span>
+                        <span style={{
+                          fontSize: '0.65rem',
+                          fontFamily: '"Consolas", "Monaco", monospace',
+                          color: colors.tertiaryForeground,
+                          letterSpacing: '0.05em',
+                        }}>
+                          {formatTime(item.timestamp)}
+                        </span>
+
+                        {/* Delete button */}
+                        <button
+                          onClick={(e) => handleDeleteItem(item.id, e)}
+                          style={{
+                            marginLeft: 'auto',
+                            opacity: isHovered ? 1 : 0,
+                            transition: 'opacity 0.2s, color 0.2s',
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '4px',
+                            color: colors.tertiaryForeground,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.color = colors.destructive)}
+                          onMouseLeave={(e) => (e.currentTarget.style.color = colors.tertiaryForeground)}
+                          aria-label="Delete translation"
+                        >
+                          <XIcon size={14} />
+                        </button>
+                      </div>
+
+                      {/* HERO: Chinese text - massive and prominent */}
+                      <div style={{ marginBottom: '16px' }}>
+                        <p style={{
+                          color: colors.foreground,
+                          fontSize: fontSize,
+                          fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
+                          fontWeight: 400,
+                          letterSpacing: '0.02em',
+                          lineHeight: 1.2,
+                          margin: 0,
+                          transition: 'transform 0.3s',
+                          transform: isHovered ? 'scale(1.02)' : 'scale(1)',
+                          transformOrigin: alignment === 'flex-end' ? 'right center' : alignment === 'flex-start' ? 'left center' : 'center',
+                        }}>
+                          {item.chinese}
+                        </p>
+                      </div>
+
+                      {/* Pinyin - annotation style, appears on hover */}
+                      {item.pinyin && (
+                        <div style={{
+                          maxHeight: isHovered ? '30px' : '0',
+                          overflow: 'hidden',
+                          transition: 'all 0.3s ease',
+                          marginBottom: isHovered ? '16px' : '0',
+                          opacity: isHovered ? 1 : 0,
+                          transform: isHovered ? 'translateY(0)' : 'translateY(-8px)',
+                        }}>
+                          <p style={{
+                            color: colors.primary,
+                            fontSize: '0.8rem',
+                            fontFamily: '"Consolas", "Monaco", monospace',
+                            fontStyle: 'italic',
+                            letterSpacing: '0.03em',
+                            lineHeight: 1.5,
+                            margin: 0,
+                          }}>
+                            {item.pinyin}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* English - editorial caption with accent bar */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '12px',
+                      }}>
+                        <div style={{
+                          width: '3px',
+                          height: '100%',
+                          minHeight: '20px',
+                          backgroundColor: colors.primary,
+                          opacity: isHovered ? 1 : 0.5,
+                          borderRadius: '2px',
+                          transition: 'opacity 0.3s',
+                          flexShrink: 0,
+                        }} />
+                        <p style={{
+                          color: colors.secondaryForeground,
+                          fontSize: '0.9rem',
+                          fontStyle: 'italic',
+                          lineHeight: 1.7,
+                          margin: 0,
+                          flex: 1,
+                        }}>
+                          {item.english}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </ScrollArea>
     </div>
   );
 }
-

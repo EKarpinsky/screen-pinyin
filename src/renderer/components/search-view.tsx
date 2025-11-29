@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, ArrowRight } from 'lucide-react';
+import { ScrollArea } from './ui/scroll-area';
+import { convertNumberedPinyin } from '../utils/pinyin';
 import hanziDictionary from '../../data/hanzi-dictionary.json';
 import hskDictionary from '../../data/hsk-dictionary.json';
+import cedictDictionary from '../../data/cedict-dictionary.json';
 
 interface HistoryItem {
   id: string;
@@ -17,6 +20,11 @@ interface DictionaryEntry {
   definition: string;
 }
 
+interface CedictEntry {
+  pinyin: string;
+  definitions: string[];
+}
+
 interface HSKEntry {
   level: number;
   type: 'character' | 'word';
@@ -28,18 +36,45 @@ interface SearchViewProps {
   onTranslateText: (text: string) => void;
 }
 
+// Colors - use CSS variables for dark mode compatibility
 const colors = {
-  background: '#f7f5f0',
-  card: '#fdfcfa',
-  foreground: '#1a1a1a',
-  muted: '#6b6b6b',
-  border: '#d4d0c8',
-  input: '#efece6',
-  primary: '#4a3728',
+  background: 'var(--background)',
+  card: 'var(--card)',
+  foreground: 'var(--foreground)',
+  muted: 'var(--muted-foreground)',
+  border: 'var(--border)',
+  input: 'var(--input)',
+  primary: 'var(--primary)',
 };
 
 const dictionary = hanziDictionary as Record<string, DictionaryEntry>;
 const hskData = hskDictionary as Record<string, HSKEntry>;
+const cedictData = cedictDictionary as Record<string, CedictEntry>;
+
+// Get best definition: CC-CEDICT first, fallback to makemeahanzi
+// Returns only the first clean definition for search display
+function getBestDefinition(char: string): string {
+  const cedict = cedictData[char];
+  if (cedict?.definitions?.length > 0) {
+    // Filter out classifier entries and clean CL: references from remaining definitions
+    const defs = cedict.definitions
+      .filter(d => !d.startsWith('CL:'))
+      .map(d => d.replace(/\s*\(CL:[^)]+\)/g, '').trim()) // Remove inline CL: references
+      .map(d => convertNumberedPinyin(d)) // Convert [pinyin1] to tone marks
+      .filter(d => d.length > 0);
+    // Return only the first definition for cleaner display
+    return defs[0] || '';
+  }
+  // Fallback to makemeahanzi
+  return dictionary[char]?.definition || '';
+}
+
+// Get clean definition for scoring (removes CL: and other noise)
+function getCleanDefinition(char: string): string {
+  const def = getBestDefinition(char);
+  // Get just the first clean definition for scoring (already cleaned by getBestDefinition)
+  return def.toLowerCase();
+}
 
 export function SearchView({ historyItems, onItemClick, onTranslateText }: SearchViewProps) {
   const [query, setQuery] = useState('');
@@ -48,25 +83,106 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Score how well a character matches the query (higher = better match)
+  const getMatchScore = (char: string, data: DictionaryEntry, queryLower: string): number => {
+    const cedict = cedictData[char];
+    const cleanDef = getCleanDefinition(char);
+    
+    // Exact character match
+    if (char === query) return 100;
+    
+    // Character contains query
+    if (char.includes(query)) return 90;
+    
+    // Exact clean definition match (e.g., searching "cat" finds 猫 with first definition "cat")
+    if (cleanDef === queryLower) return 88;
+    
+    // Exact makemeahanzi definition match
+    if (data.definition.toLowerCase() === queryLower) return 85;
+    
+    // Clean definition starts with query
+    if (cleanDef.startsWith(queryLower)) return 82;
+    
+    // Definition starts with query
+    if (data.definition.toLowerCase().startsWith(queryLower)) return 80;
+    
+    // Exact pinyin match
+    if (data.pinyin.some((p) => p.toLowerCase() === queryLower)) return 75;
+    
+    // Pinyin starts with query
+    if (data.pinyin.some((p) => p.toLowerCase().startsWith(queryLower))) return 70;
+    
+    // CC-CEDICT first clean definition starts with query
+    if (cedict?.definitions?.[0]) {
+      const firstDef = cedict.definitions[0].replace(/\s*\(CL:[^)]+\)/g, '').toLowerCase();
+      if (firstDef.startsWith(queryLower)) return 65;
+    }
+    
+    // Definition contains query as a word (not substring)
+    const defWords = data.definition.toLowerCase().split(/[\s,;]+/);
+    if (defWords.includes(queryLower)) return 55;
+    
+    // CC-CEDICT definition contains query as word
+    if (cedict?.definitions?.some((d: string) => {
+      const cleanD = d.replace(/\s*\(CL:[^)]+\)/g, '').toLowerCase();
+      return cleanD.split(/[\s,;]+/).includes(queryLower);
+    })) return 50;
+    
+    // Pinyin contains query
+    if (data.pinyin.some((p) => p.toLowerCase().includes(queryLower))) return 40;
+    
+    // CC-CEDICT pinyin contains query
+    if (cedict?.pinyin?.toLowerCase().includes(queryLower)) return 35;
+    
+    // Definition contains query (substring match - lowest priority)
+    if (data.definition.toLowerCase().includes(queryLower)) return 20;
+    
+    // CC-CEDICT definition contains query
+    if (cedict?.definitions?.some((d: string) => d.toLowerCase().includes(queryLower))) return 15;
+    
+    return 0;
+  };
+
   // Filter results based on query
+  const queryLower = query.toLowerCase();
+  
+  // Check if a character is a traditional form of another character in results
+  const isTraditionalDuplicate = (char: string, results: Array<{char: string; score: number}>): boolean => {
+    const cedict = cedictData[char];
+    // If this char's traditional form equals itself, it might be traditional
+    // Check if there's a simplified version in the results with same/higher score
+    for (const result of results) {
+      const otherCedict = cedictData[result.char];
+      if (otherCedict?.traditional === char && result.char !== char) {
+        return true; // This is the traditional form of another result
+      }
+    }
+    return false;
+  };
+
   const searchResults = {
     history: query
       ? historyItems.filter(
           (item) =>
-            item.chinese.toLowerCase().includes(query.toLowerCase()) ||
-            item.english.toLowerCase().includes(query.toLowerCase()) ||
-            item.pinyin.toLowerCase().includes(query.toLowerCase())
+            item.chinese.toLowerCase().includes(queryLower) ||
+            item.english.toLowerCase().includes(queryLower) ||
+            item.pinyin.toLowerCase().includes(queryLower)
         )
       : [],
     dictionary: query
-      ? Object.entries(dictionary)
-          .filter(([char, data]) =>
-            char.includes(query) ||
-            data.pinyin.some((p) => p.toLowerCase().includes(query.toLowerCase())) ||
-            data.definition.toLowerCase().includes(query.toLowerCase())
-          )
-          .slice(0, 10) // Limit dictionary results
-          .map(([char, data]) => ({ character: char, ...data }))
+      ? (() => {
+          const scored = Object.entries(dictionary)
+            .map(([char, data]) => ({ char, data, score: getMatchScore(char, data, queryLower) }))
+            .filter(({ score }) => score > 0)
+            .sort((a, b) => b.score - a.score);
+          
+          // Filter out traditional duplicates
+          const filtered = scored.filter(item => !isTraditionalDuplicate(item.char, scored));
+          
+          return filtered
+            .slice(0, 10)
+            .map(({ char, data }) => ({ character: char, ...data }));
+        })()
       : [],
   };
 
@@ -235,7 +351,7 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
       </div>
 
       {/* Results */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      <ScrollArea style={{ flex: 1 }}>
         {/* Empty state */}
         {!query && (
           <div style={{
@@ -251,7 +367,7 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
                 size={48}
                 style={{
                   margin: '0 auto 16px',
-                  color: 'rgba(107, 107, 107, 0.4)',
+                  color: 'var(--muted-foreground)',
                 }}
               />
               <p style={{
@@ -342,11 +458,11 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
                         borderBottom: `1px solid ${colors.border}`,
                         padding: '16px 28px',
                         transition: 'background-color 0.15s',
-                        backgroundColor: isSelected ? 'rgba(0, 0, 0, 0.04)' : 'transparent',
+                        backgroundColor: isSelected ? 'var(--hover-bg)' : 'transparent',
                         animation: `slideUp 0.3s ${index * 0.05}s ease-out backwards`,
                       }}
                       onMouseOver={(e) => {
-                        if (!isSelected) e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.02)';
+                        if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--hover-bg)';
                       }}
                       onMouseOut={(e) => {
                         if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
@@ -402,17 +518,20 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
                   return (
                     <div
                       key={entry.character}
-                      onClick={() => onItemClick({ type: 'dictionary', data: entry })}
+                      onClick={() => onItemClick({ 
+                        type: 'dictionary', 
+                        data: { ...entry, definition: getBestDefinition(entry.character) }
+                      })}
                       style={{
                         cursor: 'pointer',
                         borderBottom: `1px solid ${colors.border}`,
                         padding: '16px 28px',
                         transition: 'background-color 0.15s',
-                        backgroundColor: isSelected ? 'rgba(0, 0, 0, 0.04)' : 'transparent',
+                        backgroundColor: isSelected ? 'var(--hover-bg)' : 'transparent',
                         animation: `slideUp 0.3s ${(searchResults.history.length + index) * 0.05}s ease-out backwards`,
                       }}
                       onMouseOver={(e) => {
-                        if (!isSelected) e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.02)';
+                        if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--hover-bg)';
                       }}
                       onMouseOut={(e) => {
                         if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
@@ -463,7 +582,7 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
                       }}>
-                        {entry.definition}
+                        {getBestDefinition(entry.character)}
                       </p>
                     </div>
                   );
@@ -477,16 +596,16 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
               style={{
                 cursor: 'pointer',
                 borderBottom: `1px solid ${colors.border}`,
-                backgroundColor: selectedIndex === totalResults ? 'rgba(0, 0, 0, 0.04)' : 'rgba(0, 0, 0, 0.01)',
+                backgroundColor: selectedIndex === totalResults ? 'var(--hover-bg)' : 'transparent',
                 padding: '20px 28px',
                 transition: 'background-color 0.15s',
                 animation: `slideUp 0.3s ${totalResults * 0.05}s ease-out backwards`,
               }}
               onMouseOver={(e) => {
-                if (selectedIndex !== totalResults) e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.02)';
+                if (selectedIndex !== totalResults) e.currentTarget.style.backgroundColor = 'var(--hover-bg)';
               }}
               onMouseOut={(e) => {
-                if (selectedIndex !== totalResults) e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.01)';
+                if (selectedIndex !== totalResults) e.currentTarget.style.backgroundColor = 'transparent';
               }}
             >
               <div style={{
@@ -523,7 +642,7 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
             </div>
           </div>
         )}
-      </div>
+      </ScrollArea>
 
       {/* Keyboard hint */}
       {query && (

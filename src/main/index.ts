@@ -57,7 +57,7 @@ const createMainWindow = (): void => {
     minWidth: 600,
     minHeight: 500,
     show: false,
-    frame: true,
+    frame: false, // Completely frameless - we'll add custom controls
     resizable: true,
     backgroundColor: '#fdfcfa',
     autoHideMenuBar: true,
@@ -439,12 +439,13 @@ const setupIpcHandlers = (): void => {
     return pending;
   });
 
-  // Word segmentation using nodejieba
+  // Word segmentation with POS tagging using nodejieba
   ipcMain.handle('segment-text', (_event, text: string) => {
     try {
-      // Use nodejieba.cut for word segmentation
-      const segments = nodejieba.cut(text);
-      return { success: true, segments };
+      // Use nodejieba.tag for word segmentation with POS tags
+      // Returns: [{word: "回合", tag: "v"}, {word: "炸弹", tag: "n"}, ...]
+      const tagged = nodejieba.tag(text);
+      return { success: true, segments: tagged };
     } catch (error) {
       console.error('Segmentation error:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Segmentation failed', segments: [] };
@@ -466,6 +467,23 @@ const setupIpcHandlers = (): void => {
     if (mainWindow) {
       mainWindow.webContents.send('show-results-from-history');
     }
+  });
+
+  // Window control handlers (for custom titlebar)
+  ipcMain.handle('window-minimize', () => {
+    mainWindow?.minimize();
+  });
+
+  ipcMain.handle('window-maximize', () => {
+    if (mainWindow?.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow?.maximize();
+    }
+  });
+
+  ipcMain.handle('window-close', () => {
+    mainWindow?.close();
   });
 };
 

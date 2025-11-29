@@ -47,6 +47,11 @@ const electronAPI = {
   offShowResultsFromHistory: function(callback) {
     ipcRenderer.removeListener('show-results-from-history', callback);
   },
+
+  // Window controls (for custom titlebar)
+  windowMinimize: function() { return ipcRenderer.invoke('window-minimize'); },
+  windowMaximize: function() { return ipcRenderer.invoke('window-maximize'); },
+  windowClose: function() { return ipcRenderer.invoke('window-close'); },
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);

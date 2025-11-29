@@ -34,6 +34,11 @@ export interface ElectronAPI {
   offNewCapture: (callback: () => void) => void;
   onShowResultsFromHistory: (callback: () => void) => void;
   offShowResultsFromHistory: (callback: () => void) => void;
+
+  // Window controls (for custom titlebar)
+  windowMinimize: () => Promise<void>;
+  windowMaximize: () => Promise<void>;
+  windowClose: () => Promise<void>;
 }
 
 declare global {
@@ -77,9 +82,14 @@ export interface HistoryItem {
   timestamp: number;
 }
 
+export interface TaggedWord {
+  word: string;
+  tag: string;  // n=noun, v=verb, a=adjective, d=adverb, p=preposition, x=unknown, etc.
+}
+
 export interface SegmentationResult {
   success: boolean;
-  segments: string[];
+  segments: TaggedWord[];
   error?: string;
 }
 

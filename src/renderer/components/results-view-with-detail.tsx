@@ -1,9 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Copy, Check, X, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  useFloating,
+  autoUpdate,
+  offset,
+  flip,
+  shift,
+  useHover,
+  useFocus,
+  useDismiss,
+  useInteractions,
+  FloatingPortal,
+} from '@floating-ui/react';
+import { ScrollArea } from './ui/scroll-area';
+import { convertNumberedPinyin } from '../utils/pinyin';
 import hanziDictionary from '../../data/hanzi-dictionary.json';
 import hskDictionary from '../../data/hsk-dictionary.json';
 import sentencesDictionary from '../../data/sentences-dictionary.json';
 import cedictDictionary from '../../data/cedict-dictionary.json';
+import { TaggedWord } from '../../shared/types';
 
 // Types
 interface HSKEntry {
@@ -45,10 +60,13 @@ interface WordData {
   isMultiChar: boolean;
 }
 
+type ViewMode = 'translation' | 'lookup';
+
 interface ResultsData {
   original: string;
   pinyin: string;
   translation: string;
+  mode: ViewMode;
 }
 
 interface ResultsViewWithDetailProps {
@@ -70,17 +88,25 @@ const hskData = hskDictionary as Record<string, HSKEntry>;
 const sentencesData = sentencesDictionary as Record<string, SentenceEntry[]>;
 const cedictData = cedictDictionary as Record<string, CedictEntry>;
 
-// Colors
+// Colors - use CSS variables for dark mode compatibility
 const colors = {
-  background: '#f7f5f0',
-  card: '#fdfcfa',
-  foreground: '#1a1a1a',
-  muted: '#6b6b6b',
-  border: '#d4d0c8',
-  input: '#efece6',
-  primary: '#4a3728',
-  wordHighlight: 'rgba(74, 55, 40, 0.06)',
-  wordBorder: 'rgba(74, 55, 40, 0.15)',
+  background: 'var(--background)',
+  card: 'var(--card)',
+  foreground: 'var(--foreground)',
+  muted: 'var(--muted-foreground)',
+  border: 'var(--border)',
+  input: 'var(--input)',
+  primary: 'var(--primary)',
+  // POS colors (these work well on both light and dark backgrounds)
+  verb: 'rgba(59, 130, 246, 0.9)',        // Blue
+  noun: 'rgba(217, 119, 6, 0.9)',          // Amber
+  adjective: 'rgba(34, 197, 94, 0.9)',     // Green  
+  adverb: 'rgba(168, 85, 247, 0.9)',       // Purple
+  // Hover backgrounds
+  verbHover: 'rgba(59, 130, 246, 0.12)',
+  nounHover: 'rgba(217, 119, 6, 0.12)',
+  adjectiveHover: 'rgba(34, 197, 94, 0.12)',
+  adverbHover: 'rgba(168, 85, 247, 0.12)',
 };
 
 // Check if a character is Chinese
@@ -92,9 +118,86 @@ function isChineseChar(char: string): boolean {
          (code >= 0x2F00 && code <= 0x2FDF);
 }
 
+// Clean up definition text (convert numbered pinyin, clean up formatting)
+function cleanDefinition(def: string): string {
+  return convertNumberedPinyin(def);
+}
+
+// Check if a definition is a classifier entry
+function isClassifierEntry(def: string): boolean {
+  return def.startsWith('CL:');
+}
+
+// Parse classifier string like "CL:張|张[zhang1],套[tao4],幅[fu2]" into structured data
+function parseClassifiers(classifierString: string): Array<{ character: string; pinyin: string }> {
+  if (!classifierString || !classifierString.startsWith('CL:')) return [];
+  
+  const content = classifierString.replace('CL:', '');
+  const items = content.split(',');
+  
+  return items.map(item => {
+    // Match patterns like "張|张[zhang1]" or just "张[zhang1]" or "张zhāng"
+    // Handle both [pinyin1] format and already-converted tones
+    const bracketMatch = item.match(/(?:[^\|]+\|)?([^\[]+)\[([^\]]+)\]/);
+    if (bracketMatch) {
+      const [, char, pinyinNum] = bracketMatch;
+      // Convert numbered pinyin to tone marks
+      const pinyin = convertNumberedPinyin(`[${pinyinNum}]`);
+      return { character: char.trim(), pinyin };
+    }
+    
+    // Match pattern without brackets: "张zhāng"
+    const directMatch = item.match(/(?:[^\|]+\|)?([^\s]+?)([a-zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü]+\d?)/i);
+    if (directMatch) {
+      const [, char, pinyin] = directMatch;
+      return { character: char.trim(), pinyin: pinyin.trim() };
+    }
+    
+    return null;
+  }).filter((item): item is { character: string; pinyin: string } => item !== null);
+}
+
 // Check if string contains only Chinese characters
 function isAllChinese(str: string): boolean {
   return str.split('').every(char => isChineseChar(char) || /\s/.test(char));
+}
+
+// Part of speech type
+type POS = 'verb' | 'noun' | 'adjective' | 'adverb' | 'unknown';
+
+// Map jieba POS tag to our POS type
+// Common jieba tags: n=noun, v=verb, a=adjective, d=adverb, p=preposition, x=unknown
+// See: https://github.com/fxsjy/jieba (ICTCLAS tagset)
+function mapJiebaTagToPOS(tag: string): POS {
+  const firstChar = tag.charAt(0).toLowerCase();
+  switch (firstChar) {
+    case 'n':  // n, nr, ns, nt, nz, etc. (nouns)
+      return 'noun';
+    case 'v':  // v, vd, vn, etc. (verbs)
+      return 'verb';
+    case 'a':  // a, ad, an, etc. (adjectives)
+      return 'adjective';
+    case 'd':  // d (adverbs)
+      return 'adverb';
+    default:
+      return 'unknown';
+  }
+}
+
+// Get color for POS
+function getPOSColor(pos: POS): { rest: string; hover: string } {
+  switch (pos) {
+    case 'verb':
+      return { rest: colors.verb, hover: colors.verbHover };
+    case 'noun':
+      return { rest: colors.noun, hover: colors.nounHover };
+    case 'adjective':
+      return { rest: colors.adjective, hover: colors.adjectiveHover };
+    case 'adverb':
+      return { rest: colors.adverb, hover: colors.adverbHover };
+    default:
+      return { rest: 'var(--foreground)', hover: 'var(--hover-bg)' };
+  }
 }
 
 // Clickable character with tooltip (for use in word detail and examples)
@@ -109,9 +212,24 @@ function ClickableChar({
   size?: string;
   highlight?: boolean;
 }) {
-  const [showInfo, setShowInfo] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
   const charData = dictionary[char];
   const isClickable = !!charData;
+
+  const { refs, floatingStyles, context } = useFloating({
+    open: showTooltip,
+    onOpenChange: setShowTooltip,
+    placement: 'top',
+    middleware: [
+      offset(8),
+      flip(),
+      shift({ padding: 8 }),
+    ],
+    whileElementsMounted: autoUpdate,
+  });
+
+  const hover = useHover(context, { move: false, delay: { open: 300, close: 100 } });
+  const { getReferenceProps, getFloatingProps } = useInteractions([hover]);
 
   if (!isClickable) {
     return (
@@ -126,13 +244,17 @@ function ClickableChar({
     );
   }
 
+  // Get definition - Priority: CC-CEDICT → makemeahanzi fallback
+  const cedictDef = cedictData[char]?.definitions?.filter((d: string) => !d.startsWith('CL:'))[0];
+  const definition = convertNumberedPinyin(cedictDef || charData.definition || '—');
+  const pinyin = charData.pinyin.length > 0 ? charData.pinyin.join(', ') : '—';
+  const hskLevel = hskData[char]?.level;
+
   return (
-    <span
-      style={{ position: 'relative', display: 'inline-block' }}
-      onMouseEnter={() => setShowInfo(true)}
-      onMouseLeave={() => setShowInfo(false)}
-    >
+    <>
       <span
+        ref={refs.setReference}
+        {...getReferenceProps()}
         onClick={onClick}
         style={{
           fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
@@ -149,83 +271,132 @@ function ClickableChar({
         {char}
       </span>
 
-      {/* Tooltip */}
-      {showInfo && charData && (
-        <div style={{
-          position: 'absolute',
-          bottom: '100%',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          marginBottom: 8,
-          backgroundColor: 'rgba(0, 0, 0, 0.9)',
-          color: '#fff',
-          padding: '8px 12px',
-          borderRadius: 4,
-          fontSize: 12,
-          whiteSpace: 'nowrap',
-          zIndex: 100,
-          pointerEvents: 'none',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-            <span style={{ fontWeight: 600 }}>
-              {charData.pinyin.length > 0 ? charData.pinyin.join(', ') : '—'}
-            </span>
-            {hskData[char] && (
+      <FloatingPortal>
+        {showTooltip && (
+          <div
+            ref={refs.setFloating}
+            style={{
+              ...floatingStyles,
+              zIndex: 1000,
+              background: 'rgba(0, 0, 0, 0.9)',
+              color: 'white',
+              padding: '10px 14px',
+              borderRadius: 6,
+              fontSize: '0.8rem',
+              maxWidth: 250,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+              pointerEvents: 'none',
+            }}
+            {...getFloatingProps()}
+          >
+            <div style={{
+              fontFamily: '"Consolas", "Monaco", monospace',
+              fontSize: '0.85rem',
+              color: 'rgba(255,255,255,0.7)',
+              marginBottom: 4,
+            }}>
+              {pinyin}
+            </div>
+            <div style={{
+              fontSize: '0.875rem',
+              lineHeight: 1.4,
+              color: 'white',
+            }}>
+              {definition.length > 60 ? definition.substring(0, 60) + '...' : definition}
+            </div>
+            {hskLevel && (
               <span style={{
-                fontSize: 10,
-                padding: '1px 5px',
-                backgroundColor: 'rgba(255,255,255,0.2)',
-                borderRadius: 3,
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: '3px 8px',
+                backgroundColor: 'rgba(255,255,255,0.15)',
+                borderRadius: 4,
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                letterSpacing: '0.05em',
+                color: 'white',
+                marginTop: 6,
+                alignSelf: 'flex-start',
               }}>
-                HSK {hskData[char].level}
+                HSK {hskLevel}
               </span>
             )}
           </div>
-          <div style={{
-            color: 'rgba(255,255,255,0.8)',
-            maxWidth: 200,
-            whiteSpace: 'normal',
-            lineHeight: 1.3,
-          }}>
-            {charData.definition ? charData.definition.substring(0, 60) + (charData.definition.length > 60 ? '...' : '') : '—'}
-          </div>
-          <div style={{
-            position: 'absolute',
-            bottom: -6,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: 0,
-            height: 0,
-            borderLeft: '6px solid transparent',
-            borderRight: '6px solid transparent',
-            borderTop: '6px solid rgba(0, 0, 0, 0.9)',
-          }} />
-        </div>
-      )}
-    </span>
+        )}
+      </FloatingPortal>
+    </>
   );
 }
 
 // Clickable word component (visual grouping for multi-character words)
 function ClickableWord({
   word,
+  tag,
   onClick,
   size = '3.5rem',
 }: {
   word: string;
+  tag: string;  // POS tag from nodejieba: n=noun, v=verb, a=adj, d=adverb, etc.
   onClick: () => void;
   size?: string;
 }) {
-  const [isHovered, setIsHovered] = useState(false);
-  const isMultiChar = word.length > 1 && isAllChinese(word);
+  const [isOpen, setIsOpen] = useState(false);
+  
+  // Guard against undefined/empty word
+  if (!word) {
+    return null;
+  }
   
   // Check if word has definition in CEDICT or character dictionary
-  const hasWordDef = cedictData[word] !== undefined;
-  const hasCharDef = word.length === 1 && dictionary[word] !== undefined;
+  const wordData = cedictData[word];
+  const charData = word.length === 1 ? dictionary[word] : undefined;
+  const hasWordDef = wordData !== undefined;
+  const hasCharDef = charData !== undefined;
   const isClickable = hasWordDef || hasCharDef;
+  const isChinese = isAllChinese(word) && word.trim() !== '';
+  
+  // Get HSK level
+  const hskEntry = hskData[word];
+  const hskLevel = hskEntry?.level;
+  
+  // Get definition text
+  let definition = '';
+  let pinyin = '';
+  if (wordData) {
+    definition = convertNumberedPinyin(wordData.definitions.filter((d: string) => !d.startsWith('CL:')).slice(0, 2).join('; '));
+    pinyin = convertNumberedPinyin(wordData.pinyin);
+  } else if (charData) {
+    // Priority: CC-CEDICT → makemeahanzi fallback
+    const cedictDef = cedictData[word]?.definitions?.filter((d: string) => !d.startsWith('CL:'))[0];
+    definition = convertNumberedPinyin(cedictDef || charData.definition || '');
+    pinyin = charData.pinyin?.join(', ') || '';
+  }
+  
+  const hasTooltipContent = definition || pinyin || hskLevel;
+
+  // Floating UI setup
+  const { refs, floatingStyles, context } = useFloating({
+    open: isOpen,
+    onOpenChange: setIsOpen,
+    placement: 'top',
+    middleware: [
+      offset(8),
+      flip({ fallbackAxisSideDirection: 'start', padding: 8 }),
+      shift({ padding: 8 }),
+    ],
+    whileElementsMounted: autoUpdate,
+  });
+
+  const hover = useHover(context, { move: false, delay: { open: 200, close: 0 } });
+  const focus = useFocus(context);
+  const dismiss = useDismiss(context);
+  const { getReferenceProps, getFloatingProps } = useInteractions([hover, focus, dismiss]);
 
   // For punctuation and non-Chinese, just render as-is
-  if (!isAllChinese(word) || word.trim() === '') {
+  if (!isChinese) {
     return (
       <span style={{
         fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
@@ -237,40 +408,110 @@ function ClickableWord({
     );
   }
 
+  // Map jieba tag to POS type
+  const posFromTag = mapJiebaTagToPOS(tag);
+  const posColor = getPOSColor(posFromTag);
+
   return (
-    <span
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      onClick={isClickable ? onClick : undefined}
-      style={{
-        display: 'inline-block',
-        fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
-        fontSize: size,
-        color: colors.foreground,
-        cursor: isClickable ? 'pointer' : 'default',
-        padding: isMultiChar ? '2px 4px' : '0',
-        margin: isMultiChar ? '0 2px' : '0',
-        borderRadius: 4,
-        backgroundColor: isMultiChar && isHovered ? colors.wordHighlight : 'transparent',
-        borderBottom: isMultiChar ? `2px solid ${isHovered ? colors.primary : colors.wordBorder}` : 'none',
-        transition: 'all 0.15s ease',
-      }}
-    >
-      {word}
-    </span>
+    <>
+      <span
+        ref={refs.setReference}
+        {...getReferenceProps()}
+        onClick={isClickable ? onClick : undefined}
+        style={{
+          display: 'inline-block',
+          fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
+          fontSize: size,
+          color: isOpen ? colors.primary : posColor.rest,
+          cursor: isClickable ? 'pointer' : 'default',
+          padding: '2px 4px',
+          marginLeft: -4,
+          marginRight: -4,
+          borderRadius: 4,
+          backgroundColor: isOpen ? posColor.hover : 'transparent',
+          transition: 'all 0.15s ease',
+          transform: isOpen ? 'translateY(-1px)' : 'none',
+        }}
+      >
+        {word}
+      </span>
+      
+      {/* Tooltip via FloatingPortal */}
+      <FloatingPortal>
+        {isOpen && hasTooltipContent && (
+          <div
+            ref={refs.setFloating}
+            style={{
+              ...floatingStyles,
+              backgroundColor: colors.foreground,
+              color: colors.card,
+              padding: '8px 12px',
+              borderRadius: 6,
+              fontSize: '0.75rem',
+              fontFamily: 'system-ui, sans-serif',
+              maxWidth: 280,
+              zIndex: 9999,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              animation: 'fadeIn 0.15s ease-out',
+            }}
+            {...getFloatingProps()}
+          >
+            {/* Pinyin */}
+            {pinyin && (
+              <div style={{ 
+                fontFamily: '"Consolas", "Monaco", monospace',
+                marginBottom: definition ? 4 : 0,
+                opacity: 0.8,
+              }}>
+                {pinyin}
+              </div>
+            )}
+            
+            {/* Definition */}
+            {definition && (
+              <div style={{ 
+                lineHeight: 1.4,
+              }}>
+                {definition.length > 80 ? definition.slice(0, 80) + '...' : definition}
+              </div>
+            )}
+            
+            {/* HSK Level */}
+            {hskLevel && (
+              <div style={{
+                marginTop: 6,
+                display: 'inline-block',
+                padding: '2px 6px',
+                backgroundColor: 'rgba(255,255,255,0.15)',
+                borderRadius: 3,
+                fontSize: '0.65rem',
+                fontWeight: 600,
+                letterSpacing: '0.05em',
+              }}>
+                HSK {hskLevel}
+              </div>
+            )}
+          </div>
+        )}
+      </FloatingPortal>
+    </>
   );
 }
 
 export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWithDetailProps) {
-  const [segmentedWords, setSegmentedWords] = useState<string[]>([]);
+  const [segmentedWords, setSegmentedWords] = useState<TaggedWord[]>([]);
   const [selectedDetail, setSelectedDetail] = useState<DetailState | null>(null);
   const [detailHistory, setDetailHistory] = useState<DetailState[]>([]);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'structure'>('overview');
   const [currentExampleIndex, setCurrentExampleIndex] = useState(0);
+  const [currentWordExampleIndex, setCurrentWordExampleIndex] = useState(0);
   const detailRef = useRef<HTMLDivElement>(null);
 
   const hasDetail = selectedDetail !== null;
+
+  // Check if this is a lookup (single word/char exploration) vs full translation
+  const isLookupMode = data.mode === 'lookup';
 
   // Segment text on mount or data change
   useEffect(() => {
@@ -280,17 +521,46 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
         if (result.success && result.segments) {
           setSegmentedWords(result.segments);
         } else {
-          // Fallback: split by character
-          setSegmentedWords(data.original.split(''));
+          // Fallback: split by character with unknown tag
+          setSegmentedWords(data.original.split('').map(char => ({ word: char, tag: 'x' })));
         }
       } catch (error) {
         console.error('Segmentation failed:', error);
-        // Fallback: split by character
-        setSegmentedWords(data.original.split(''));
+        // Fallback: split by character with unknown tag
+        setSegmentedWords(data.original.split('').map(char => ({ word: char, tag: 'x' })));
       }
     };
     segmentText();
   }, [data.original]);
+
+  // In lookup mode, automatically show detail panel for the word/character
+  useEffect(() => {
+    if (isLookupMode && data.original) {
+      // Try to find word data first (for multi-char lookups)
+      const wordData = cedictData[data.original];
+      if (wordData && data.original.length > 1) {
+        setSelectedDetail({
+          type: 'word',
+          data: {
+            word: data.original,
+            traditional: wordData.traditional,
+            pinyin: wordData.pinyin,
+            definitions: wordData.definitions,
+            isMultiChar: true,
+          }
+        });
+      } else {
+        // Fall back to character data
+        const charData = dictionary[data.original] || dictionary[data.original[0]];
+        if (charData) {
+          setSelectedDetail({ type: 'character', data: charData });
+        }
+      }
+      setActiveTab('overview');
+      setCurrentExampleIndex(0);
+      setCurrentWordExampleIndex(0);
+    }
+  }, [isLookupMode, data.original]);
 
   // Handle ESC key
   useEffect(() => {
@@ -298,6 +568,9 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
       if (e.key === 'Escape') {
         if (detailHistory.length > 0) {
           handleDetailBack();
+        } else if (isLookupMode) {
+          // In lookup mode, ESC goes back to previous view
+          onBack();
         } else if (hasDetail) {
           handleCloseDetail();
         } else {
@@ -307,7 +580,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [hasDetail, detailHistory, onBack]);
+  }, [hasDetail, detailHistory, onBack, isLookupMode]);
 
   // Scroll detail panel to top when detail changes
   useEffect(() => {
@@ -357,7 +630,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
         }
         setSelectedDetail({ type: 'word', data: wordData });
         setActiveTab('overview');
-        setCurrentExampleIndex(0);
+        setCurrentWordExampleIndex(0);
       } else {
         // If no word entry, fall back to first character
         const charData = getCharacterData(word[0]);
@@ -414,11 +687,28 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
 
   // Render the segmented words
   const renderSegmentedText = (size: string = '3.5rem') => {
-    return segmentedWords.map((word, index) => (
+    // Debug: log what we're rendering
+    console.log('Rendering segmentedWords:', segmentedWords);
+    
+    if (!segmentedWords || segmentedWords.length === 0) {
+      // Fallback: render original text as single clickable unit
+      return (
+        <span style={{
+          fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
+          fontSize: size,
+          color: colors.foreground,
+        }}>
+          {data.original}
+        </span>
+      );
+    }
+    
+    return segmentedWords.map((tagged, index) => (
       <ClickableWord
         key={index}
-        word={word}
-        onClick={() => handleWordClick(word)}
+        word={tagged?.word || ''}
+        tag={tagged?.tag || 'x'}
+        onClick={() => handleWordClick(tagged?.word || '')}
         size={size}
       />
     ));
@@ -431,8 +721,33 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
   // Get sentences for current character
   const characterSentences = currentCharacter ? (sentencesData[currentCharacter.character] || []) : [];
 
+  // Get sentences for current word (search for sentences containing the word)
+  const getWordSentences = (word: string): SentenceEntry[] => {
+    // First try to get sentences indexed by the first character
+    const firstCharSentences = sentencesData[word[0]] || [];
+    // Filter to find sentences that contain the full word
+    const matchingSentences = firstCharSentences.filter(s => s.s.includes(word));
+    
+    // If we don't find enough, also check other characters in the word
+    if (matchingSentences.length < 2 && word.length > 1) {
+      for (let i = 1; i < word.length && matchingSentences.length < 5; i++) {
+        const charSentences = sentencesData[word[i]] || [];
+        for (const sentence of charSentences) {
+          if (sentence.s.includes(word) && !matchingSentences.some(m => m.s === sentence.s)) {
+            matchingSentences.push(sentence);
+            if (matchingSentences.length >= 5) break;
+          }
+        }
+      }
+    }
+    
+    return matchingSentences.slice(0, 5);
+  };
+
+  const wordSentences = currentWord ? getWordSentences(currentWord.word) : [];
+
   return (
-    <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', height: '100%', overflow: 'hidden', backgroundColor: colors.background }}>
       <style>{`
         @keyframes slideInFromRight {
           from { opacity: 0; transform: translateX(50px); }
@@ -448,21 +763,24 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
         }
       `}</style>
 
-      {/* Left Column: Translation */}
+      {/* Left Column: Translation (hidden in lookup mode) */}
+      {!isLookupMode && (
       <div
         style={{
           width: hasDetail ? '35%' : '100%',
           borderRight: hasDetail ? `1px solid ${colors.border}` : 'none',
           transition: 'width 0.4s cubic-bezier(0.22, 1, 0.36, 1)',
-          overflowY: 'auto',
           display: 'flex',
           flexDirection: 'column',
+          backgroundColor: colors.background,
+          overflow: 'hidden',
         }}
       >
-        <div style={{
-          padding: '24px 32px 32px 32px',
-          minHeight: '100%',
-        }}>
+        <ScrollArea style={{ flex: 1 }}>
+          <div style={{
+            padding: '24px 32px 32px 32px',
+            minHeight: '100%',
+          }}>
           {/* Back button */}
           <button
             onClick={onBack}
@@ -536,7 +854,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
               <p style={{
                 fontSize: hasDetail ? '0.95rem' : '1.15rem',
                 fontFamily: '"Consolas", "Monaco", monospace',
-                color: 'rgba(26, 26, 26, 0.7)',
+                color: 'var(--text-secondary)',
                 lineHeight: 1.5,
                 letterSpacing: '0.03em',
                 margin: 0,
@@ -582,7 +900,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                     justifyContent: 'center',
                     gap: 8,
                     border: `1px solid ${colors.border}`,
-                    backgroundColor: copied ? colors.foreground : 'rgba(232, 228, 220, 0.3)',
+                    backgroundColor: copied ? colors.foreground : 'var(--muted)',
                     padding: '14px 24px',
                     fontSize: '0.875rem',
                     fontWeight: 500,
@@ -599,7 +917,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                   }}
                   onMouseOut={(e) => {
                     if (!copied) {
-                      e.currentTarget.style.backgroundColor = 'rgba(232, 228, 220, 0.3)';
+                      e.currentTarget.style.backgroundColor = 'var(--muted)';
                       e.currentTarget.style.color = colors.foreground;
                     }
                   }}
@@ -611,17 +929,20 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
             )}
           </div>
         </div>
+        </ScrollArea>
       </div>
+      )}
 
       {/* Right Column: Detail Panel (Word or Character) */}
       {hasDetail && (
         <div
           style={{
-            width: '65%',
-            animation: 'slideInFromRight 0.4s cubic-bezier(0.22, 1, 0.36, 1)',
+            width: isLookupMode ? '100%' : '65%',
+            animation: isLookupMode ? 'fadeIn 0.3s ease-out' : 'slideInFromRight 0.4s cubic-bezier(0.22, 1, 0.36, 1)',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
+            backgroundColor: colors.background,
           }}
         >
           {/* Header with back/close buttons */}
@@ -634,7 +955,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
             animation: 'fadeIn 0.3s ease-out',
           }}>
             <button
-              onClick={handleDetailBack}
+              onClick={detailHistory.length > 0 ? handleDetailBack : onBack}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -654,7 +975,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
               onMouseOut={(e) => e.currentTarget.style.color = colors.muted}
             >
               <ChevronLeft size={16} />
-              {detailHistory.length > 0 ? 'Previous' : 'Close'}
+              {detailHistory.length > 0 ? 'Previous' : (isLookupMode ? 'Back' : 'Close')}
             </button>
             <div style={{
               fontSize: '0.65rem',
@@ -669,7 +990,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
               {selectedDetail.type === 'word' ? 'Word' : 'Character'}
             </div>
             <button
-              onClick={handleCloseDetail}
+              onClick={isLookupMode ? onBack : handleCloseDetail}
               style={{
                 color: colors.muted,
                 background: 'none',
@@ -756,14 +1077,13 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
           )}
 
           {/* Content */}
-          <div
-            ref={detailRef}
-            style={{
-              flex: 1,
-              overflowY: 'auto',
-              padding: '24px',
-            }}
-          >
+          <ScrollArea style={{ flex: 1 }}>
+            <div
+              ref={detailRef}
+              style={{
+                padding: '24px',
+              }}
+            >
             {/* WORD DETAIL VIEW */}
             {currentWord && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -783,7 +1103,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                     <p style={{
                       fontSize: '1.5rem',
                       fontFamily: '"Consolas", "Monaco", monospace',
-                      color: 'rgba(26, 26, 26, 0.8)',
+                      color: 'var(--foreground)',
                       letterSpacing: '0.03em',
                       margin: 0,
                     }}>
@@ -794,7 +1114,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                         display: 'inline-flex',
                         alignItems: 'center',
                         padding: '3px 10px',
-                        backgroundColor: 'rgba(74, 55, 40, 0.08)',
+                        backgroundColor: 'var(--accent-bg)',
                         border: `1px solid ${colors.border}`,
                         fontSize: 11,
                         fontWeight: 600,
@@ -808,64 +1128,134 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                   </div>
                 </div>
 
-                {/* Traditional form (if different) */}
-                {currentWord.traditional !== currentWord.word && (
-                  <div style={{ animation: 'slideUp 0.3s 0.05s ease-out backwards' }}>
-                    <div style={{
-                      fontSize: '0.65rem',
-                      fontWeight: 600,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.1em',
-                      color: colors.muted,
-                      marginBottom: 6,
-                    }}>
-                      Traditional
-                    </div>
-                    <p style={{
-                      fontSize: '1.25rem',
-                      fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
-                      color: colors.foreground,
-                      margin: 0,
-                    }}>
-                      {currentWord.traditional}
-                    </p>
-                  </div>
-                )}
+                {/* Definitions (filtered - no CL: entries) */}
+                {(() => {
+                  const regularDefs = currentWord.definitions.filter(def => !isClassifierEntry(def));
+                  const classifierDefs = currentWord.definitions.filter(def => isClassifierEntry(def));
+                  const allClassifiers = classifierDefs.flatMap(def => parseClassifiers(def));
+                  
+                  return (
+                    <>
+                      <div style={{ animation: 'slideUp 0.3s 0.1s ease-out backwards' }}>
+                        <div style={{
+                          fontSize: '0.65rem',
+                          fontWeight: 600,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.1em',
+                          color: colors.muted,
+                          marginBottom: 8,
+                        }}>
+                          Definitions
+                        </div>
+                        <div style={{ margin: 0 }}>
+                          {regularDefs.slice(0, 6).map((def, i) => (
+                            <div 
+                              key={i} 
+                              style={{
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: 10,
+                                marginBottom: i < Math.min(regularDefs.length, 6) - 1 ? 8 : 0,
+                              }}
+                            >
+                              <span style={{
+                                fontSize: '0.7rem',
+                                fontWeight: 600,
+                                color: colors.muted,
+                                minWidth: 16,
+                                textAlign: 'right',
+                              }}>
+                                {i + 1}
+                              </span>
+                              <span style={{
+                                fontSize: '0.95rem',
+                                color: colors.foreground,
+                                lineHeight: 1.5,
+                              }}>
+                                {cleanDefinition(def)}
+                              </span>
+                            </div>
+                          ))}
+                          {regularDefs.length > 6 && (
+                            <div style={{ 
+                              fontSize: '0.8rem', 
+                              color: colors.muted,
+                              marginTop: 8,
+                              paddingLeft: 26,
+                            }}>
+                              +{regularDefs.length - 6} more
+                            </div>
+                          )}
+                        </div>
+                      </div>
 
-                {/* Definitions */}
-                <div style={{ animation: 'slideUp 0.3s 0.1s ease-out backwards' }}>
-                  <div style={{
-                    fontSize: '0.65rem',
-                    fontWeight: 600,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.1em',
-                    color: colors.muted,
-                    marginBottom: 8,
-                  }}>
-                    Definitions
-                  </div>
-                  <ul style={{
-                    margin: 0,
-                    paddingLeft: 20,
-                    color: colors.foreground,
-                    lineHeight: 1.8,
-                  }}>
-                    {currentWord.definitions.slice(0, 8).map((def, i) => (
-                      <li key={i} style={{ fontSize: '0.95rem' }}>{def}</li>
-                    ))}
-                    {currentWord.definitions.length > 8 && (
-                      <li style={{ 
-                        fontSize: '0.85rem', 
-                        color: colors.muted,
-                        listStyle: 'none',
-                        marginLeft: -20,
-                        marginTop: 4,
-                      }}>
-                        +{currentWord.definitions.length - 8} more...
-                      </li>
-                    )}
-                  </ul>
-                </div>
+                      {/* Measure Words (Classifiers) */}
+                      {allClassifiers.length > 0 && (
+                        <div style={{ animation: 'slideUp 0.3s 0.12s ease-out backwards' }}>
+                          <div style={{
+                            fontSize: '0.65rem',
+                            fontWeight: 600,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.1em',
+                            color: colors.muted,
+                            marginBottom: 10,
+                          }}>
+                            Measure Words
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.625rem' }}>
+                            {allClassifiers.map((classifier, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => handleCharacterClick(classifier.character)}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'baseline',
+                                  gap: '0.375rem',
+                                  padding: '0.375rem 0.75rem',
+                                  background: 'var(--accent-bg)',
+                                  border: '1px solid var(--accent-border)',
+                                  borderRadius: '0.25rem',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s ease',
+                                  fontFamily: 'inherit',
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.background = 'var(--accent-bg)';
+                                  e.currentTarget.style.borderColor = 'var(--primary)';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.background = 'var(--accent-bg)';
+                                  e.currentTarget.style.borderColor = 'var(--accent-border)';
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    fontSize: '1.125rem',
+                                    lineHeight: 1,
+                                    color: colors.foreground,
+                                    fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
+                                  }}
+                                >
+                                  {classifier.character}
+                                </span>
+                                <span
+                                  style={{
+                                    fontSize: '0.75rem',
+                                    color: colors.muted,
+                                    letterSpacing: '0.02em',
+                                    fontFamily: '"Consolas", "Monaco", monospace',
+                                  }}
+                                >
+                                  {classifier.pinyin}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
 
                 {/* Component Characters - clickable chips */}
                 <div style={{ 
@@ -895,7 +1285,12 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                   <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                     {currentWord.word.split('').map((char, i) => {
                       const charData = dictionary[char];
-                      const charHsk = hskData[char];
+                      // Get short definition - Priority: CC-CEDICT → makemeahanzi fallback
+                      const cedictDef = cedictData[char]?.definitions?.filter((d: string) => !d.startsWith('CL:'))[0];
+                      const fullDef = convertNumberedPinyin(cedictDef || charData?.definition || '');
+                      const shortDef = fullDef 
+                        ? fullDef.split(/[,;]/)[0].trim().substring(0, 25) + (fullDef.length > 25 ? '...' : '')
+                        : '—';
                       return (
                         <button
                           key={i}
@@ -913,7 +1308,8 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                             cursor: charData ? 'pointer' : 'default',
                             opacity: charData ? 1 : 0.5,
                             transition: 'all 0.15s ease',
-                            minWidth: 80,
+                            minWidth: 100,
+                            maxWidth: 140,
                           }}
                           onMouseOver={(e) => {
                             if (charData) {
@@ -941,22 +1337,173 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                           }}>
                             {charData?.pinyin?.[0] || '—'}
                           </span>
-                          {charHsk && (
-                            <span style={{
-                              fontSize: '0.6rem',
-                              padding: '1px 6px',
-                              backgroundColor: 'rgba(74, 55, 40, 0.08)',
-                              borderRadius: 3,
-                              color: colors.primary,
-                            }}>
-                              HSK {charHsk.level}
-                            </span>
-                          )}
+                          <span style={{
+                            fontSize: '0.65rem',
+                            color: colors.muted,
+                            textAlign: 'center',
+                            lineHeight: 1.3,
+                            opacity: 0.8,
+                          }}>
+                            {shortDef}
+                          </span>
                         </button>
                       );
                     })}
                   </div>
                 </div>
+
+                {/* Example Sentences for Word - Pull-Quote Style */}
+                {wordSentences.length > 0 && (
+                  <div style={{
+                    animation: 'slideUp 0.3s 0.2s ease-out backwards',
+                    marginTop: 8,
+                    paddingTop: 20,
+                    borderTop: `1px solid ${colors.border}`,
+                  }}>
+                    {/* Decorative opening quote */}
+                    <div style={{
+                      fontFamily: 'Georgia, "Times New Roman", serif',
+                      fontSize: '4rem',
+                      lineHeight: 1,
+                      color: colors.primary,
+                      opacity: 0.15,
+                      marginBottom: '-1.5rem',
+                      marginLeft: '-0.5rem',
+                    }}>
+                      "
+                    </div>
+
+                    {/* Chinese sentence - centered, clickable, highlight the word */}
+                    <div style={{
+                      fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
+                      fontSize: '1.4rem',
+                      lineHeight: 1.8,
+                      textAlign: 'center',
+                      color: colors.foreground,
+                      marginBottom: '1rem',
+                      letterSpacing: '0.03em',
+                    }}>
+                      {wordSentences[currentWordExampleIndex].s.split('').map((char, charIndex) => {
+                        // Check if this char is part of the word
+                        const sentenceText = wordSentences[currentWordExampleIndex].s;
+                        const wordStart = sentenceText.indexOf(currentWord.word);
+                        const isPartOfWord = wordStart !== -1 && 
+                          charIndex >= wordStart && 
+                          charIndex < wordStart + currentWord.word.length;
+                        const isChinese = isChineseChar(char);
+
+                        if (!isChinese) {
+                          return <span key={charIndex}>{char}</span>;
+                        }
+
+                        return (
+                          <ClickableChar
+                            key={charIndex}
+                            char={char}
+                            onClick={() => handleCharacterClick(char)}
+                            size="1.4rem"
+                            highlight={isPartOfWord}
+                          />
+                        );
+                      })}
+                    </div>
+
+                    {/* Pinyin - subtle, centered */}
+                    <div style={{
+                      fontFamily: '"Consolas", "Monaco", monospace',
+                      fontSize: '0.85rem',
+                      textAlign: 'center',
+                      color: colors.muted,
+                      marginBottom: '1rem',
+                      opacity: 0.6,
+                      letterSpacing: '0.05em',
+                    }}>
+                      {wordSentences[currentWordExampleIndex].p}
+                    </div>
+
+                    {/* English translation */}
+                    <div style={{
+                      fontSize: '0.9rem',
+                      textAlign: 'center',
+                      color: colors.foreground,
+                      opacity: 0.6,
+                      fontStyle: 'italic',
+                      maxWidth: '90%',
+                      margin: '0 auto',
+                      lineHeight: 1.6,
+                    }}>
+                      {wordSentences[currentWordExampleIndex].e}
+                    </div>
+
+                    {/* Pagination dots + next arrow (if multiple examples) */}
+                    {wordSentences.length > 1 && (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.75rem',
+                        marginTop: '1.5rem',
+                      }}>
+                        {/* Pagination dots */}
+                        <div style={{ display: 'flex', gap: '0.375rem', alignItems: 'center' }}>
+                          {wordSentences.map((_, index) => (
+                            <button
+                              key={index}
+                              onClick={() => setCurrentWordExampleIndex(index)}
+                              style={{
+                                width: index === currentWordExampleIndex ? '1rem' : '0.375rem',
+                                height: '0.375rem',
+                                borderRadius: '0.1875rem',
+                                background: index === currentWordExampleIndex ? colors.primary : colors.muted,
+                                opacity: index === currentWordExampleIndex ? 1 : 0.3,
+                                border: 'none',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease',
+                              }}
+                            />
+                          ))}
+                        </div>
+
+                        {/* Next arrow */}
+                        <button
+                          onClick={() => setCurrentWordExampleIndex((prev) => 
+                            (prev + 1) % wordSentences.length
+                          )}
+                          style={{
+                            fontSize: '1rem',
+                            color: colors.muted,
+                            background: 'transparent',
+                            border: 'none',
+                            padding: '0.25rem',
+                            cursor: 'pointer',
+                            transition: 'color 0.2s ease',
+                            lineHeight: 1,
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.color = colors.primary;
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.color = colors.muted;
+                          }}
+                        >
+                          →
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Subtle hint */}
+                    <div style={{
+                      fontSize: '0.6875rem',
+                      textAlign: 'center',
+                      color: colors.muted,
+                      marginTop: '1.25rem',
+                      opacity: 0.5,
+                      letterSpacing: '0.03em',
+                    }}>
+                      Click any character to explore it
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -979,7 +1526,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                     <p style={{
                       fontSize: '1.5rem',
                       fontFamily: '"Consolas", "Monaco", monospace',
-                      color: 'rgba(26, 26, 26, 0.8)',
+                      color: 'var(--foreground)',
                       letterSpacing: '0.03em',
                       margin: 0,
                     }}>
@@ -990,7 +1537,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                         display: 'inline-flex',
                         alignItems: 'center',
                         padding: '3px 10px',
-                        backgroundColor: 'rgba(74, 55, 40, 0.08)',
+                        backgroundColor: 'var(--accent-bg)',
                         border: `1px solid ${colors.border}`,
                         fontSize: 11,
                         fontWeight: 600,
@@ -1016,15 +1563,124 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                   }}>
                     Definition
                   </div>
-                  <p style={{
-                    fontSize: '0.95rem',
-                    color: colors.foreground,
-                    lineHeight: 1.6,
-                    margin: 0,
-                  }}>
-                    {currentCharacter.definition || '—'}
-                  </p>
+                  <div style={{ margin: 0 }}>
+                    {(() => {
+                      // Priority: CC-CEDICT → makemeahanzi fallback
+                      const cedictDefs = cedictData[currentCharacter.character]?.definitions?.filter((d: string) => !d.startsWith('CL:'));
+                      if (cedictDefs && cedictDefs.length > 0) {
+                        return cedictDefs.slice(0, 4).map((def, i) => (
+                          <div 
+                            key={i} 
+                            style={{
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              gap: 10,
+                              marginBottom: i < Math.min(cedictDefs.length, 4) - 1 ? 8 : 0,
+                            }}
+                          >
+                            <span style={{
+                              fontSize: '0.7rem',
+                              fontWeight: 600,
+                              color: colors.muted,
+                              minWidth: 16,
+                              textAlign: 'right',
+                            }}>
+                              {i + 1}
+                            </span>
+                            <span style={{
+                              fontSize: '0.95rem',
+                              color: colors.foreground,
+                              lineHeight: 1.5,
+                            }}>
+                              {convertNumberedPinyin(def)}
+                            </span>
+                          </div>
+                        ));
+                      }
+                      return (
+                        <p style={{
+                          fontSize: '0.95rem',
+                          color: colors.foreground,
+                          lineHeight: 1.6,
+                          margin: 0,
+                        }}>
+                          {currentCharacter.definition || '—'}
+                        </p>
+                      );
+                    })()}
+                  </div>
                 </div>
+
+                {/* Measure Words (Classifiers) for Character */}
+                {(() => {
+                  const allDefs = cedictData[currentCharacter.character]?.definitions || [];
+                  const classifierDefs = allDefs.filter(isClassifierEntry);
+                  const allClassifiers = classifierDefs.flatMap(parseClassifiers);
+                  
+                  if (allClassifiers.length === 0) return null;
+                  
+                  return (
+                    <div style={{ animation: 'slideUp 0.3s 0.08s ease-out backwards' }}>
+                      <div style={{
+                        fontSize: '0.65rem',
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.1em',
+                        color: colors.muted,
+                        marginBottom: 10,
+                      }}>
+                        Measure Words
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.625rem' }}>
+                        {allClassifiers.map((classifier, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => handleCharacterClick(classifier.character)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'baseline',
+                              gap: '0.375rem',
+                              padding: '0.375rem 0.75rem',
+                              background: 'var(--accent-bg)',
+                              border: '1px solid var(--accent-border)',
+                              borderRadius: '0.25rem',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease',
+                              fontFamily: 'inherit',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.borderColor = 'var(--primary)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.borderColor = 'var(--accent-border)';
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: '1.125rem',
+                                lineHeight: 1,
+                                color: colors.foreground,
+                                fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
+                              }}
+                            >
+                              {classifier.character}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: '0.75rem',
+                                color: colors.muted,
+                                letterSpacing: '0.02em',
+                                fontFamily: '"Consolas", "Monaco", monospace',
+                              }}
+                            >
+                              {classifier.pinyin}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Example Sentence - Editorial Pull-Quote Style */}
                 {characterSentences.length > 0 && (
@@ -1219,7 +1875,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                   <div style={{
                     fontSize: '1.1rem',
                     fontFamily: '"Consolas", "Monaco", monospace',
-                    color: 'rgba(26, 26, 26, 0.7)',
+                    color: 'var(--text-secondary)',
                     display: 'flex',
                     flexWrap: 'wrap',
                     gap: 4,
@@ -1259,7 +1915,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                       <p style={{
                         fontSize: '0.875rem',
-                        color: 'rgba(26, 26, 26, 0.9)',
+                        color: 'var(--foreground)',
                         lineHeight: 1.5,
                         margin: 0,
                       }}>
@@ -1269,7 +1925,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                       {currentCharacter.etymology.hint && (
                         <p style={{
                           fontSize: '0.875rem',
-                          color: 'rgba(26, 26, 26, 0.7)',
+                          color: 'var(--text-secondary)',
                           lineHeight: 1.6,
                           margin: 0,
                         }}>
@@ -1279,7 +1935,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                       {currentCharacter.etymology.semantic && currentCharacter.etymology.phonetic && (
                         <div style={{
                           fontSize: '0.875rem',
-                          color: 'rgba(26, 26, 26, 0.7)',
+                          color: 'var(--text-secondary)',
                           lineHeight: 1.6,
                         }}>
                           <ClickableChar
@@ -1302,7 +1958,8 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
               </div>
             )}
 
-          </div>
+            </div>
+          </ScrollArea>
         </div>
       )}
     </div>
