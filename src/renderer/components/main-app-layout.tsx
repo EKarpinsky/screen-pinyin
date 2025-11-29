@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Clock, Settings, Search, Check, Minus, Square, Copy } from 'lucide-react';
 import { SearchView } from './search-view';
 import { ResultsViewWithDetail } from './results-view-with-detail';
-import { TranslationHistory } from './translation-history';
+import { TranslationHistory } from './history';
 import { LightbulbToggle } from './lightbulb-toggle';
 import { ScrollArea } from './ui/scroll-area';
 import { useTheme } from '../contexts/theme-context';

@@ -9,7 +9,11 @@
     "package": "electron-forge package",
     "make": "electron-forge make",
     "publish": "electron-forge publish",
-    "lint": "eslint --ext .ts,.tsx ."
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:ui": "vitest --ui"
   },
   "keywords": [
     "electron",
@@ -53,14 +57,24 @@
     "@electron-forge/plugin-fuses": "^7.10.2",
     "@electron-forge/plugin-webpack": "^7.10.2",
     "@electron/fuses": "^1.8.0",
+    "@eslint/js": "^9.39.1",
     "@tailwindcss/postcss": "^4.1.9",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vercel/webpack-asset-relocator-loader": "^1.7.3",
+    "@vitejs/plugin-react": "^5.1.1",
     "css-loader": "^7.1.2",
     "electron": "39.2.4",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
     "fork-ts-checker-webpack-plugin": "^9.0.2",
+    "globals": "^16.5.0",
+    "jsdom": "^27.2.0",
     "node-loader": "^2.1.0",
     "postcss": "^8.5.0",
     "postcss-loader": "^8.1.1",
@@ -68,6 +82,8 @@
     "tailwindcss": "^4.1.9",
     "ts-loader": "^9.5.1",
     "tw-animate-css": "^1.3.3",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.48.0",
+    "vitest": "^4.0.14"
   }
 }

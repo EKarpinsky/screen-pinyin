@@ -16,10 +16,13 @@
     "outDir": "./dist",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@utils": ["./src/renderer/utils"],
+      "@utils/*": ["./src/renderer/utils/*"],
+      "@components/*": ["./src/renderer/components/*"]
     }
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "config/**/*"],
   "exclude": ["node_modules", "dist"]
 }
 

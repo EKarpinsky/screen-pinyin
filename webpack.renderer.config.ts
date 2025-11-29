@@ -1,6 +1,6 @@
 import type { Configuration } from 'webpack';
 import { rules } from './webpack.rules';
-import path from 'path';
+import { aliases } from './config/aliases';
 
 export const rendererConfig: Configuration = {
   module: {
@@ -27,9 +27,7 @@ export const rendererConfig: Configuration = {
   },
   resolve: {
     extensions: ['.js', '.ts', '.jsx', '.tsx', '.css', '.json'],
-    alias: {
-      '@': path.resolve(__dirname, 'src'),
-    },
+    alias: aliases,
   },
   // Prevent webpack from injecting __dirname/__filename which break in Electron sandbox
   node: {
