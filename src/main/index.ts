@@ -507,6 +507,10 @@ app.whenReady().then(async () => {
   createTray();
   registerHotkey();
 
+  // Create and show main window on startup
+  createMainWindow();
+  mainWindow?.show();
+
   // Pre-initialize OCR worker
   await initOCRWorker();
 });

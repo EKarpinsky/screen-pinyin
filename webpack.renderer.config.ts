@@ -34,10 +34,5 @@ export const rendererConfig: Configuration = {
     extensions: ['.js', '.ts', '.jsx', '.tsx', '.css', '.json'],
     alias: aliases,
   },
-  // Enable __dirname/__filename for Tailwind/PostCSS compatibility
-  node: {
-    __dirname: true,
-    __filename: true,
-  },
 };
 
