@@ -17,7 +17,7 @@ interface TranslationHistoryProps {
   onClearAll?: () => void;
 }
 
-// CSS keyframes for magazine-style animations
+// CSS keyframes and hover styles (pure CSS for performance)
 const keyframesStyle = `
   @keyframes fadeIn {
     from { opacity: 0; }
@@ -31,14 +31,6 @@ const keyframesStyle = `
     from { opacity: 0; transform: scale(0.9); }
     to { opacity: 1; transform: scale(1); }
   }
-  @keyframes slideInLeft {
-    from { opacity: 0; transform: translateX(-40px); }
-    to { opacity: 1; transform: translateX(0); }
-  }
-  @keyframes slideInRight {
-    from { opacity: 0; transform: translateX(40px); }
-    to { opacity: 1; transform: translateX(0); }
-  }
   @keyframes float {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-8px); }
@@ -46,6 +38,46 @@ const keyframesStyle = `
   @keyframes pulse {
     0%, 100% { opacity: 0.4; }
     50% { opacity: 0.6; }
+  }
+  
+  /* Card hover styles - pure CSS for smooth performance */
+  .history-card {
+    background-color: transparent;
+    border: 1px solid transparent;
+    transform: translateY(0);
+    box-shadow: none;
+    transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    will-change: transform;
+  }
+  .history-card:hover {
+    background-color: var(--card);
+    border-color: var(--border);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0,0,0,0.1);
+  }
+  
+  .history-watermark {
+    opacity: 0.06;
+    transition: opacity 0.2s ease;
+  }
+  .history-card:hover .history-watermark {
+    opacity: 0.18;
+  }
+  
+  .history-accent-bar {
+    opacity: 0.5;
+    transition: opacity 0.15s ease;
+  }
+  .history-card:hover .history-accent-bar {
+    opacity: 1;
+  }
+  
+  .history-delete-btn {
+    opacity: 0;
+    transition: opacity 0.2s ease, color 0.2s ease;
+  }
+  .history-card:hover .history-delete-btn {
+    opacity: 1;
   }
 `;
 
@@ -117,7 +149,6 @@ export function TranslationHistory({
   onClearAll,
 }: TranslationHistoryProps = {}) {
   const [items, setItems] = useState<HistoryItem[]>(propItems || []);
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [loading, setLoading] = useState(!propItems);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -296,7 +327,7 @@ export function TranslationHistory({
                 letterSpacing: '0.1em',
                 textTransform: 'uppercase',
                 fontWeight: 500,
-                transition: 'all 0.2s',
+                transition: 'border-color 0.2s ease, color 0.2s ease',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.borderColor = colors.destructive;
@@ -462,7 +493,6 @@ export function TranslationHistory({
             gap: '24px',
           }}>
             {filteredItems.map((item, index) => {
-              const isHovered = hoveredId === item.id;
               const fontSize = getDynamicFontSize(item.chinese);
               const watermarkChar = item.chinese[0];
               
@@ -470,44 +500,37 @@ export function TranslationHistory({
                 <div
                   key={item.id}
                   style={{
-                    animation: `slideUp 0.5s ${index * 0.08}s ease-out backwards`,
+                    animation: `slideUp 0.5s ${Math.min(index * 0.05, 0.5)}s ease-out backwards`,
                   }}
                 >
                   <div
+                    className="history-card"
                     style={{
                       width: '100%',
                       position: 'relative',
                       cursor: 'pointer',
-                      backgroundColor: isHovered ? colors.card : 'transparent',
-                      border: `1px solid ${isHovered ? colors.border : 'transparent'}`,
                       borderRadius: '8px',
                       padding: '32px',
-                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                      transform: isHovered ? 'translateY(-4px)' : 'none',
-                      boxShadow: isHovered 
-                        ? '0 20px 40px rgba(0,0,0,0.08), 0 8px 16px rgba(0,0,0,0.06)' 
-                        : 'none',
                       overflow: 'hidden',
                     }}
                     onClick={() => handleItemClick(item)}
-                    onMouseEnter={() => setHoveredId(item.id)}
-                    onMouseLeave={() => setHoveredId(null)}
                   >
                     {/* Watermark character */}
-                    <div style={{
-                      position: 'absolute',
-                      top: '-20%',
-                      right: '5%',
-                      fontSize: '12rem',
-                      fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
-                      fontWeight: 100,
-                      color: colors.border,
-                      opacity: isHovered ? 0.2 : 0.08,
-                      userSelect: 'none',
-                      pointerEvents: 'none',
-                      transition: 'opacity 0.3s',
-                      lineHeight: 1,
-                    }}>
+                    <div 
+                      className="history-watermark"
+                      style={{
+                        position: 'absolute',
+                        top: '-20%',
+                        right: '5%',
+                        fontSize: '10rem',
+                        fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
+                        fontWeight: 100,
+                        color: colors.border,
+                        userSelect: 'none',
+                        pointerEvents: 'none',
+                        lineHeight: 1,
+                      }}
+                    >
                       {watermarkChar}
                     </div>
 
@@ -547,11 +570,10 @@ export function TranslationHistory({
 
                         {/* Delete button */}
                         <button
+                          className="history-delete-btn"
                           onClick={(e) => handleDeleteItem(item.id, e)}
                           style={{
                             marginLeft: 'auto',
-                            opacity: isHovered ? 1 : 0,
-                            transition: 'opacity 0.2s, color 0.2s',
                             background: 'none',
                             border: 'none',
                             cursor: 'pointer',
@@ -579,9 +601,6 @@ export function TranslationHistory({
                           letterSpacing: '0.02em',
                           lineHeight: 1.2,
                           margin: 0,
-                          transition: 'transform 0.3s',
-                          transform: isHovered ? 'scale(1.02)' : 'scale(1)',
-                          transformOrigin: 'left center',
                         }}>
                           {item.chinese}
                         </p>
@@ -610,16 +629,17 @@ export function TranslationHistory({
                         alignItems: 'flex-start',
                         gap: '12px',
                       }}>
-                        <div style={{
-                          width: '3px',
-                          height: '100%',
-                          minHeight: '20px',
-                          backgroundColor: colors.primary,
-                          opacity: isHovered ? 1 : 0.5,
-                          borderRadius: '2px',
-                          transition: 'opacity 0.3s',
-                          flexShrink: 0,
-                        }} />
+                        <div 
+                          className="history-accent-bar"
+                          style={{
+                            width: '3px',
+                            height: '100%',
+                            minHeight: '20px',
+                            backgroundColor: colors.primary,
+                            borderRadius: '2px',
+                            flexShrink: 0,
+                          }} 
+                        />
                         <p style={{
                           color: colors.secondaryForeground,
                           fontSize: '0.9rem',

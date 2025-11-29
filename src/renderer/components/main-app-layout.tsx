@@ -259,13 +259,7 @@ export function MainAppLayout() {
         mode: 'translation',
       });
       setIsProcessing(false);
-
-      // Add to history (main process generates id and timestamp)
-      await window.electronAPI.addToHistory({
-        chinese: translateResult.original || text,
-        pinyin: translateResult.pinyin || '',
-        english: translateResult.translation || '',
-      });
+      // Note: History is auto-saved by main process translate handler
     } catch (err) {
       setProcessError(err instanceof Error ? err.message : 'Unknown error');
       setIsProcessing(false);
