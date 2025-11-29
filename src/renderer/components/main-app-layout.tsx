@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { X, Clock, Settings, Search, Check, Minus, Square, Copy } from 'lucide-react';
+import { X, Clock, Settings, Search, Check, Minus, Square, Copy, Eye, EyeOff } from 'lucide-react';
 import { SearchView } from './search-view';
 import { ResultsViewWithDetail } from './results-view-with-detail';
 import { TranslationHistory } from './history';
 import { LightbulbToggle } from './lightbulb-toggle';
 import { ScrollArea } from './ui/scroll-area';
 import { useTheme } from '../contexts/theme-context';
+import { cn } from '@utils';
+import { AZURE_REGIONS } from './settings/types';
 import hanziDictionary from '../../data/hanzi-dictionary.json';
 
 // Define types locally (not imported from preload to avoid sandbox issues)
@@ -78,15 +80,6 @@ const keyframesStyle = `
   }
 `;
 
-const AZURE_REGIONS = [
-  { value: "eastus", label: "East US" },
-  { value: "westus", label: "West US" },
-  { value: "westus2", label: "West US 2" },
-  { value: "eastasia", label: "East Asia" },
-  { value: "southeastasia", label: "Southeast Asia" },
-  { value: "northeurope", label: "North Europe" },
-  { value: "westeurope", label: "West Europe" },
-];
 
 export function MainAppLayout() {
   console.log('[MainAppLayout] Rendering...');
@@ -470,7 +463,7 @@ function WindowControlButton({
   );
 }
 
-// Settings View Component
+// Settings View Component - Refactored with Tailwind
 function SettingsView() {
   const [apiKey, setApiKey] = useState('');
   const [region, setRegion] = useState('eastus');
@@ -503,210 +496,136 @@ function SettingsView() {
 
   if (isLoading) {
     return (
-      <div style={{
-        flex: 1,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: colors.muted,
-      }}>
-        Loading...
+      <div className="flex-1 flex items-center justify-center text-[var(--muted-foreground)]">
+        <span className="animate-[pulseFade_2s_ease-in-out_infinite]">Loading...</span>
       </div>
     );
   }
 
   return (
     <ScrollArea style={{ height: '100%' }}>
-      <div style={{
-        padding: '28px 36px',
-        animation: 'fadeIn 0.3s ease-out',
-      }}>
+      <div className="p-7 px-9 animate-[fadeIn_0.3s_ease-out]">
         {/* Header */}
-      <div style={{ marginBottom: 28 }}>
-        <h2 style={{
-          fontSize: '1.35rem',
-          fontWeight: 500,
-          color: colors.foreground,
-          margin: 0,
-        }}>
-          Settings
-        </h2>
-        <p style={{
-          fontSize: '0.875rem',
-          color: colors.muted,
-          marginTop: 4,
-          margin: 0,
-        }}>
-          Configure your Azure Translator connection
-        </p>
-      </div>
+        <div className="mb-7">
+          <h2 className="text-[1.35rem] font-medium text-[var(--foreground)] m-0">
+            Settings
+          </h2>
+          <p className="text-sm text-[var(--muted-foreground)] mt-1 m-0">
+            Configure your Azure Translator connection
+          </p>
+        </div>
 
-      {/* Form */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 480 }}>
-        {/* API Key */}
-        <div>
-          <label style={{
-            display: 'block',
-            fontSize: '0.875rem',
-            fontWeight: 500,
-            color: colors.foreground,
-            marginBottom: 8,
-          }}>
-            Azure API Key
-          </label>
-          <div style={{ position: 'relative' }}>
-            <input
-              type={showApiKey ? 'text' : 'password'}
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Enter your API key"
-              style={{
-                width: '100%',
-                border: `1px solid ${colors.border}`,
-                backgroundColor: colors.input,
-                padding: '12px 44px 12px 14px',
-                fontSize: '0.875rem',
-                color: colors.foreground,
-                fontFamily: 'inherit',
-                outline: 'none',
-                boxSizing: 'border-box',
-                borderRadius: 0,
-              }}
-              onFocus={(e) => e.currentTarget.style.borderColor = colors.foreground}
-              onBlur={(e) => e.currentTarget.style.borderColor = colors.border}
-            />
-            <button
-              type="button"
-              onClick={() => setShowApiKey(!showApiKey)}
-              style={{
-                position: 'absolute',
-                right: 12,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                background: 'transparent',
-                border: 'none',
-                color: colors.muted,
-                cursor: 'pointer',
-                padding: 4,
-                display: 'flex',
-              }}
-            >
-              {showApiKey ? (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" />
-                  <line x1="1" y1="1" x2="23" y2="23" />
-                </svg>
-              ) : (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
+        {/* Form */}
+        <div className="flex flex-col gap-5 max-w-[480px]">
+          {/* API Key */}
+          <div>
+            <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
+              Azure API Key
+            </label>
+            <div className="relative">
+              <input
+                type={showApiKey ? 'text' : 'password'}
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Enter your API key"
+                className={cn(
+                  "w-full border border-[var(--border)]",
+                  "bg-[var(--input)] rounded-none",
+                  "py-3 pl-3.5 pr-11 text-sm",
+                  "text-[var(--foreground)] font-[inherit]",
+                  "outline-none transition-colors duration-200",
+                  "focus:border-[var(--foreground)]",
+                  "placeholder:text-[var(--muted-foreground)]"
+                )}
+              />
+              <button
+                type="button"
+                onClick={() => setShowApiKey(!showApiKey)}
+                className={cn(
+                  "absolute right-3 top-1/2 -translate-y-1/2",
+                  "bg-transparent border-0 p-1",
+                  "text-[var(--muted-foreground)] cursor-pointer",
+                  "flex items-center justify-center",
+                  "hover:text-[var(--foreground)] transition-colors"
+                )}
+              >
+                {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+
+          {/* Region */}
+          <div>
+            <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
+              Azure Region
+            </label>
+            <select
+              value={region}
+              onChange={(e) => setRegion(e.target.value)}
+              className={cn(
+                "w-full appearance-none",
+                "border border-[var(--border)]",
+                "bg-[var(--input)] rounded-none",
+                "py-3 px-3.5 text-sm",
+                "text-[var(--foreground)] font-[inherit]",
+                "outline-none cursor-pointer",
+                "transition-colors duration-200",
+                "focus:border-[var(--foreground)]",
+                "bg-[length:16px] bg-[right_12px_center] bg-no-repeat",
+                "bg-[url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b6b6b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")]"
               )}
-            </button>
+            >
+              {AZURE_REGIONS.map((r) => (
+                <option key={r.value} value={r.value}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
 
-        {/* Region */}
-        <div>
-          <label style={{
-            display: 'block',
-            fontSize: '0.875rem',
-            fontWeight: 500,
-            color: colors.foreground,
-            marginBottom: 8,
-          }}>
-            Azure Region
-          </label>
-          <select
-            value={region}
-            onChange={(e) => setRegion(e.target.value)}
-            style={{
-              width: '100%',
-              appearance: 'none',
-              border: `1px solid ${colors.border}`,
-              backgroundColor: colors.input,
-              padding: '12px 14px',
-              fontSize: '0.875rem',
-              color: colors.foreground,
-              fontFamily: 'inherit',
-              outline: 'none',
-              cursor: 'pointer',
-              borderRadius: 0,
-              backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b6b6b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-              backgroundPosition: 'right 12px center',
-              backgroundRepeat: 'no-repeat',
-              backgroundSize: '16px',
-            }}
+          {/* Hotkey Display */}
+          <div className="border border-[var(--border)] bg-[var(--hover-bg)] p-4">
+            <div className={cn(
+              "text-[0.7rem] font-semibold uppercase",
+              "tracking-[0.1em] text-[var(--muted-foreground)]",
+              "mb-2.5"
+            )}>
+              Capture Hotkey
+            </div>
+            <div className="flex items-center gap-2">
+              {['Ctrl', 'Shift', 'C'].map((key, i) => (
+                <div key={key} className="flex items-center gap-2">
+                  {i > 0 && <span className="text-[var(--muted-foreground)]">+</span>}
+                  <kbd className={cn(
+                    "border border-[var(--border)]",
+                    "bg-[var(--card)] px-2.5 py-1",
+                    "text-[0.8rem] font-medium",
+                    "font-mono text-[var(--foreground)]"
+                  )}>
+                    {key}
+                  </kbd>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Save Button */}
+          <button
+            onClick={handleSave}
+            className={cn(
+              "border border-[var(--foreground)]",
+              "bg-[var(--foreground)] py-3.5 px-5",
+              "text-sm font-medium",
+              "text-[var(--card)] cursor-pointer",
+              "font-[inherit] transition-opacity duration-200",
+              "flex items-center justify-center gap-2",
+              "hover:opacity-90"
+            )}
           >
-            {AZURE_REGIONS.map((r) => (
-              <option key={r.value} value={r.value}>
-                {r.label}
-              </option>
-            ))}
-          </select>
+            {saved && <Check size={16} />}
+            {saved ? 'Saved!' : 'Save Settings'}
+          </button>
         </div>
-
-        {/* Hotkey Display */}
-        <div style={{
-          border: `1px solid ${colors.border}`,
-          backgroundColor: 'var(--muted)',
-          padding: 16,
-        }}>
-          <div style={{
-            fontSize: '0.7rem',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            letterSpacing: '0.1em',
-            color: colors.muted,
-            marginBottom: 10,
-          }}>
-            Capture Hotkey
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {['Ctrl', 'Shift', 'C'].map((key, i) => (
-              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {i > 0 && <span style={{ color: colors.muted }}>+</span>}
-                <kbd style={{
-                  border: `1px solid ${colors.border}`,
-                  backgroundColor: colors.card,
-                  padding: '5px 10px',
-                  fontSize: '0.8rem',
-                  fontWeight: 500,
-                  fontFamily: '"Consolas", monospace',
-                  color: colors.foreground,
-                }}>
-                  {key}
-                </kbd>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Save Button */}
-        <button
-          onClick={handleSave}
-          style={{
-            border: `1px solid ${colors.foreground}`,
-            backgroundColor: saved ? colors.foreground : colors.foreground,
-            padding: '14px 20px',
-            fontSize: '0.875rem',
-            fontWeight: 500,
-            color: colors.card,
-            cursor: 'pointer',
-            fontFamily: 'inherit',
-            transition: 'all 0.2s',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-          }}
-          onMouseOver={(e) => e.currentTarget.style.opacity = '0.9'}
-          onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
-        >
-          {saved ? <Check size={16} /> : null}
-          {saved ? 'Saved!' : 'Save Settings'}
-        </button>
-      </div>
       </div>
     </ScrollArea>
   );
