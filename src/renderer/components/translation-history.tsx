@@ -71,25 +71,6 @@ function getDynamicFontSize(text: string): string {
   return '1.5rem';
 }
 
-// Get card width pattern for visual rhythm
-function getCardWidth(index: number): string {
-  const patterns = ['85%', '70%', '55%', '75%', '60%', '80%'];
-  return patterns[index % patterns.length];
-}
-
-// Get card alignment for asymmetric layout
-function getCardAlignment(index: number): 'flex-start' | 'flex-end' | 'center' {
-  const patterns: ('flex-start' | 'flex-end' | 'center')[] = ['flex-start', 'flex-end', 'center', 'flex-end', 'flex-start', 'center'];
-  return patterns[index % patterns.length];
-}
-
-// Get animation based on alignment
-function getAnimation(index: number): string {
-  const alignment = getCardAlignment(index);
-  if (alignment === 'flex-start') return 'slideInLeft';
-  if (alignment === 'flex-end') return 'slideInRight';
-  return 'slideUp';
-}
 
 // Search Icon component
 function SearchIcon({ size = 16 }: { size?: number }) {
@@ -482,9 +463,6 @@ export function TranslationHistory({
           }}>
             {filteredItems.map((item, index) => {
               const isHovered = hoveredId === item.id;
-              const cardWidth = getCardWidth(index);
-              const alignment = getCardAlignment(index);
-              const animation = getAnimation(index);
               const fontSize = getDynamicFontSize(item.chinese);
               const watermarkChar = item.chinese[0];
               
@@ -492,16 +470,12 @@ export function TranslationHistory({
                 <div
                   key={item.id}
                   style={{
-                    display: 'flex',
-                    justifyContent: alignment,
-                    animation: `${animation} 0.5s ${index * 0.08}s ease-out backwards`,
+                    animation: `slideUp 0.5s ${index * 0.08}s ease-out backwards`,
                   }}
                 >
                   <div
                     style={{
-                      width: cardWidth,
-                      minWidth: '280px',
-                      maxWidth: '100%',
+                      width: '100%',
                       position: 'relative',
                       cursor: 'pointer',
                       backgroundColor: isHovered ? colors.card : 'transparent',
@@ -509,7 +483,7 @@ export function TranslationHistory({
                       borderRadius: '8px',
                       padding: '32px',
                       transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                      transform: isHovered ? 'translateY(-4px) rotate(-0.5deg)' : 'none',
+                      transform: isHovered ? 'translateY(-4px)' : 'none',
                       boxShadow: isHovered 
                         ? '0 20px 40px rgba(0,0,0,0.08), 0 8px 16px rgba(0,0,0,0.06)' 
                         : 'none',
@@ -523,9 +497,7 @@ export function TranslationHistory({
                     <div style={{
                       position: 'absolute',
                       top: '-20%',
-                      right: alignment === 'flex-end' ? '10%' : 'auto',
-                      left: alignment === 'flex-start' ? '-10%' : alignment === 'center' ? '50%' : 'auto',
-                      transform: alignment === 'center' ? 'translateX(-50%)' : 'none',
+                      right: '5%',
                       fontSize: '12rem',
                       fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
                       fontWeight: 100,
@@ -609,22 +581,15 @@ export function TranslationHistory({
                           margin: 0,
                           transition: 'transform 0.3s',
                           transform: isHovered ? 'scale(1.02)' : 'scale(1)',
-                          transformOrigin: alignment === 'flex-end' ? 'right center' : alignment === 'flex-start' ? 'left center' : 'center',
+                          transformOrigin: 'left center',
                         }}>
                           {item.chinese}
                         </p>
                       </div>
 
-                      {/* Pinyin - annotation style, appears on hover */}
+                      {/* Pinyin - annotation style */}
                       {item.pinyin && (
-                        <div style={{
-                          maxHeight: isHovered ? '30px' : '0',
-                          overflow: 'hidden',
-                          transition: 'all 0.3s ease',
-                          marginBottom: isHovered ? '16px' : '0',
-                          opacity: isHovered ? 1 : 0,
-                          transform: isHovered ? 'translateY(0)' : 'translateY(-8px)',
-                        }}>
+                        <div style={{ marginBottom: '16px' }}>
                           <p style={{
                             color: colors.primary,
                             fontSize: '0.8rem',
