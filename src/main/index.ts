@@ -4,6 +4,7 @@ import { captureScreen, cropImage } from './capture';
 import { createWorker, Worker } from 'tesseract.js';
 import axios from 'axios';
 import nodejieba from 'nodejieba';
+import { initDictionaryDB, searchDictionary, getEntry, getEntries, closeDictionaryDB, isDictionaryReady } from './dictionary-db';
 
 // Handle Squirrel events for Windows installer
 if (require('electron-squirrel-startup')) {
@@ -485,6 +486,39 @@ const setupIpcHandlers = (): void => {
   ipcMain.handle('window-close', () => {
     mainWindow?.close();
   });
+
+  // Dictionary search handlers (SQLite + FTS5)
+  ipcMain.handle('dictionary-search', (_event, query: string, limit?: number) => {
+    if (!isDictionaryReady()) {
+      console.warn('Dictionary search called but database not ready');
+      return [];
+    }
+    return searchDictionary(query, limit);
+  });
+
+  ipcMain.handle('dictionary-get', (_event, simplified: string) => {
+    if (!isDictionaryReady()) {
+      return null;
+    }
+    return getEntry(simplified);
+  });
+
+  ipcMain.handle('dictionary-get-many', (_event, simplifiedList: string[]) => {
+    if (!isDictionaryReady()) {
+      return {};
+    }
+    const entriesMap = getEntries(simplifiedList);
+    // Convert Map to plain object for IPC serialization
+    const result: Record<string, unknown> = {};
+    entriesMap.forEach((value, key) => {
+      result[key] = value;
+    });
+    return result;
+  });
+
+  ipcMain.handle('dictionary-ready', () => {
+    return isDictionaryReady();
+  });
 };
 
 // App lifecycle
@@ -499,6 +533,14 @@ app.whenReady().then(async () => {
       translationHistory: [],
     },
   });
+
+  // Initialize dictionary database (SQLite + FTS5)
+  try {
+    initDictionaryDB();
+    console.log('Dictionary database initialized');
+  } catch (err) {
+    console.error('Failed to initialize dictionary database:', err);
+  }
 
   // Setup IPC handlers
   setupIpcHandlers();
@@ -524,6 +566,8 @@ app.on('will-quit', () => {
   if (ocrWorker) {
     ocrWorker.terminate();
   }
+  // Close dictionary database
+  closeDictionaryDB();
 });
 
 app.on('activate', () => {

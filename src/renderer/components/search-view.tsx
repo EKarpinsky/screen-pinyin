@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, ArrowRight } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 import { convertNumberedPinyin } from '../utils/pinyin';
@@ -28,6 +28,26 @@ interface CedictEntry {
 interface HSKEntry {
   level: number;
   type: 'character' | 'word';
+}
+
+// SQLite FTS5 search result from main process
+interface SQLiteDictionaryEntry {
+  simplified: string;
+  traditional: string;
+  pinyin: string;
+  definitions: string;
+}
+
+// Custom debounce hook
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+
+  return debouncedValue;
 }
 
 interface SearchViewProps {
@@ -80,8 +100,49 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isMultiLine, setIsMultiLine] = useState(false);
+  const [sqliteResults, setSqliteResults] = useState<SQLiteDictionaryEntry[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [useSqlite, setUseSqlite] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Debounce query for SQLite search (150ms delay)
+  const debouncedQuery = useDebounce(query, 150);
+
+  // Check if SQLite dictionary is available
+  useEffect(() => {
+    const checkSqlite = async () => {
+      if (window.electronAPI?.dictionaryReady) {
+        const ready = await window.electronAPI.dictionaryReady();
+        setUseSqlite(ready);
+        if (ready) console.log('Using SQLite FTS5 for dictionary search');
+      }
+    };
+    checkSqlite();
+  }, []);
+
+  // Perform SQLite dictionary search when debounced query changes
+  useEffect(() => {
+    const performSearch = async () => {
+      if (!useSqlite || !debouncedQuery.trim()) {
+        setSqliteResults([]);
+        return;
+      }
+      
+      setIsSearching(true);
+      try {
+        const results = await window.electronAPI.dictionarySearch(debouncedQuery, 10);
+        setSqliteResults(results || []);
+      } catch (err) {
+        console.error('SQLite search error:', err);
+        setSqliteResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+    
+    performSearch();
+  }, [debouncedQuery, useSqlite]);
 
   // Score how well a character matches the query (higher = better match)
   const getMatchScore = (char: string, data: DictionaryEntry, queryLower: string): number => {
@@ -160,6 +221,25 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
     return false;
   };
 
+  // Convert SQLite results to DictionaryEntry format
+  const sqliteToDictEntry = useCallback((entry: SQLiteDictionaryEntry): DictionaryEntry => {
+    // Parse pinyin - SQLite stores as comma-separated string
+    const pinyinArray = entry.pinyin ? entry.pinyin.split(', ').filter(p => p.trim()) : [];
+    // Get first clean definition
+    const definitions = entry.definitions ? entry.definitions.split('; ') : [];
+    const cleanDef = definitions
+      .filter(d => !d.startsWith('CL:'))
+      .map(d => d.replace(/\s*\(CL:[^)]+\)/g, '').trim())
+      .map(d => convertNumberedPinyin(d))
+      .filter(d => d.length > 0)[0] || '';
+      
+    return {
+      character: entry.simplified,
+      pinyin: pinyinArray,
+      definition: cleanDef,
+    };
+  }, []);
+
   const searchResults = {
     history: query
       ? historyItems.filter(
@@ -170,19 +250,23 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
         )
       : [],
     dictionary: query
-      ? (() => {
-          const scored = Object.entries(dictionary)
-            .map(([char, data]) => ({ char, data, score: getMatchScore(char, data, queryLower) }))
-            .filter(({ score }) => score > 0)
-            .sort((a, b) => b.score - a.score);
-          
-          // Filter out traditional duplicates
-          const filtered = scored.filter(item => !isTraditionalDuplicate(item.char, scored));
-          
-          return filtered
-            .slice(0, 10)
-            .map(({ char, data }) => ({ character: char, ...data }));
-        })()
+      ? (useSqlite && sqliteResults.length > 0)
+        // Use SQLite FTS5 results (fast, <5ms)
+        ? sqliteResults.map(sqliteToDictEntry)
+        // Fallback to JSON search (slower, but works without database)
+        : (() => {
+            const scored = Object.entries(dictionary)
+              .map(([char, data]) => ({ char, data, score: getMatchScore(char, data, queryLower) }))
+              .filter(({ score }) => score > 0)
+              .sort((a, b) => b.score - a.score);
+            
+            // Filter out traditional duplicates
+            const filtered = scored.filter(item => !isTraditionalDuplicate(item.char, scored));
+            
+            return filtered
+              .slice(0, 10)
+              .map(({ char, data }) => ({ character: char, ...data }));
+          })()
       : [],
   };
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Copy, Check, X, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   useFloating,
@@ -17,7 +17,7 @@ import { convertNumberedPinyin } from '../utils/pinyin';
 import hanziDictionary from '../../data/hanzi-dictionary.json';
 import hskDictionary from '../../data/hsk-dictionary.json';
 import sentencesDictionary from '../../data/sentences-dictionary.json';
-import cedictDictionary from '../../data/cedict-dictionary.json';
+import cedictDictionaryJson from '../../data/cedict-dictionary.json';
 import { TaggedWord } from '../../shared/types';
 
 // Types
@@ -86,7 +86,107 @@ interface DetailState {
 const dictionary = hanziDictionary as Record<string, CharacterData>;
 const hskData = hskDictionary as Record<string, HSKEntry>;
 const sentencesData = sentencesDictionary as Record<string, SentenceEntry[]>;
-const cedictData = cedictDictionary as Record<string, CedictEntry>;
+// Fallback to JSON if SQLite not available
+const cedictJsonFallback = cedictDictionaryJson as Record<string, CedictEntry>;
+
+// CedictData Context - provides dictionary data with SQLite-first lookup
+interface CedictContextType {
+  getEntry: (key: string) => CedictEntry | undefined;
+  cache: Record<string, CedictEntry>;
+}
+
+const CedictContext = React.createContext<CedictContextType>({
+  getEntry: (key) => cedictJsonFallback[key],
+  cache: {},
+});
+
+// Hook to use cedict data
+function useCedictEntry(key: string | undefined): CedictEntry | undefined {
+  const { getEntry } = React.useContext(CedictContext);
+  return key ? getEntry(key) : undefined;
+}
+
+// Provider component that loads from SQLite
+function CedictProvider({ children, keysToLoad }: { children: React.ReactNode; keysToLoad: string[] }) {
+  const [cache, setCache] = useState<Record<string, CedictEntry>>({});
+  const [loadedFromSqlite, setLoadedFromSqlite] = useState(false);
+
+  // Load entries from SQLite when keys change
+  useEffect(() => {
+    const loadEntries = async () => {
+      // Filter to only keys we haven't loaded yet
+      const keysToFetch = keysToLoad.filter(k => k && !cache[k]);
+      if (keysToFetch.length === 0) return;
+
+      try {
+        // Check if SQLite is ready
+        const isReady = await window.electronAPI.dictionaryReady?.();
+        
+        if (isReady) {
+          // Batch fetch from SQLite - returns object { simplified: entry }
+          const results = await window.electronAPI.dictionaryGetMany?.(keysToFetch);
+          
+          if (results && typeof results === 'object') {
+            const newEntries: Record<string, CedictEntry> = {};
+            Object.entries(results).forEach(([key, entry]: [string, { simplified: string; traditional: string; pinyin: string; definitions: string }]) => {
+              if (entry) {
+                newEntries[key] = {
+                  traditional: entry.traditional,
+                  pinyin: entry.pinyin,
+                  // SQLite stores definitions as semicolon-separated string, filter empty entries
+                  definitions: entry.definitions.split('; ').filter(d => d.trim() !== ''),
+                };
+              }
+            });
+            setCache(prev => ({ ...prev, ...newEntries }));
+            setLoadedFromSqlite(true);
+          }
+        }
+      } catch (err) {
+        // SQLite not available, will use JSON fallback
+      }
+    };
+
+    loadEntries();
+  }, [keysToLoad.join(',')]); // Dependency on joined keys to avoid object comparison issues
+
+  // Get entry: SQLite cache first, then JSON fallback
+  const getEntry = useCallback((key: string): CedictEntry | undefined => {
+    return cache[key] || cedictJsonFallback[key];
+  }, [cache]);
+
+  return (
+    <CedictContext.Provider value={{ getEntry, cache }}>
+      {children}
+    </CedictContext.Provider>
+  );
+}
+
+// Legacy global accessor for components that haven't been updated yet
+// This allows gradual migration
+let globalCedictGetter: ((key: string) => CedictEntry | undefined) | null = null;
+const cedictData = new Proxy({} as Record<string, CedictEntry>, {
+  get(_, key: string) {
+    if (globalCedictGetter) {
+      return globalCedictGetter(key);
+    }
+    return cedictJsonFallback[key];
+  }
+});
+
+// Bridge component to connect Context to global getter
+function CedictContextBridge() {
+  const { getEntry } = React.useContext(CedictContext);
+  
+  useEffect(() => {
+    globalCedictGetter = getEntry;
+    return () => {
+      globalCedictGetter = null;
+    };
+  }, [getEntry]);
+  
+  return null;
+}
 
 // Colors - use CSS variables for dark mode compatibility
 const colors = {
@@ -118,14 +218,32 @@ function isChineseChar(char: string): boolean {
          (code >= 0x2F00 && code <= 0x2FDF);
 }
 
-// Clean up definition text (convert numbered pinyin, clean up formatting)
-function cleanDefinition(def: string): string {
-  return convertNumberedPinyin(def);
+// Extract inline classifier from definition like "song (CL:首shǒu,支zhī)"
+function extractInlineClassifier(def: string): { cleanDef: string; classifier: string | null } {
+  const match = def.match(/\(CL:([^)]+)\)/);
+  if (match) {
+    return {
+      cleanDef: def.replace(/\s*\(CL:[^)]+\)/, '').trim(),
+      classifier: `CL:${match[1]}`
+    };
+  }
+  return { cleanDef: def, classifier: null };
 }
 
-// Check if a definition is a classifier entry
+// Clean up definition text (convert numbered pinyin, strip inline CL)
+function cleanDefinition(def: string): string {
+  const { cleanDef } = extractInlineClassifier(def);
+  return convertNumberedPinyin(cleanDef);
+}
+
+// Check if a definition is a standalone classifier entry
 function isClassifierEntry(def: string): boolean {
   return def.startsWith('CL:');
+}
+
+// Check if definition contains an inline classifier
+function hasInlineClassifier(def: string): boolean {
+  return /\(CL:[^)]+\)/.test(def);
 }
 
 // Parse classifier string like "CL:張|张[zhang1],套[tao4],幅[fu2]" into structured data
@@ -513,6 +631,43 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
   // Check if this is a lookup (single word/char exploration) vs full translation
   const isLookupMode = data.mode === 'lookup';
 
+  // Collect all unique characters/words that need dictionary lookup
+  const keysToLoad = React.useMemo(() => {
+    const keys = new Set<string>();
+    // Add original text and its characters
+    keys.add(data.original);
+    for (const char of data.original) {
+      if (/[\u4e00-\u9fff]/.test(char)) {
+        keys.add(char);
+      }
+    }
+    // Add segmented words
+    segmentedWords.forEach(({ word }) => {
+      if (word && /[\u4e00-\u9fff]/.test(word)) {
+        keys.add(word);
+        for (const char of word) {
+          if (/[\u4e00-\u9fff]/.test(char)) {
+            keys.add(char);
+          }
+        }
+      }
+    });
+    // Add selected detail character/word
+    if (selectedDetail) {
+      if (selectedDetail.type === 'word') {
+        const wordData = selectedDetail.data as WordData;
+        keys.add(wordData.word);
+        for (const char of wordData.word) {
+          keys.add(char);
+        }
+      } else {
+        const charData = selectedDetail.data as CharacterData;
+        keys.add(charData.character);
+      }
+    }
+    return Array.from(keys);
+  }, [data.original, segmentedWords, selectedDetail]);
+
   // Segment text on mount or data change
   useEffect(() => {
     const segmentText = async () => {
@@ -747,8 +902,10 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
   const wordSentences = currentWord ? getWordSentences(currentWord.word) : [];
 
   return (
-    <div style={{ display: 'flex', height: '100%', overflow: 'hidden', backgroundColor: colors.background }}>
-      <style>{`
+    <CedictProvider keysToLoad={keysToLoad}>
+      <CedictContextBridge />
+      <div style={{ display: 'flex', height: '100%', overflow: 'hidden', backgroundColor: colors.background }}>
+        <style>{`
         @keyframes slideInFromRight {
           from { opacity: 0; transform: translateX(50px); }
           to { opacity: 1; transform: translateX(0); }
@@ -1130,9 +1287,19 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
 
                 {/* Definitions (filtered - no CL: entries) */}
                 {(() => {
+                  // Filter out standalone CL: entries from display
                   const regularDefs = currentWord.definitions.filter(def => !isClassifierEntry(def));
-                  const classifierDefs = currentWord.definitions.filter(def => isClassifierEntry(def));
-                  const allClassifiers = classifierDefs.flatMap(def => parseClassifiers(def));
+                  
+                  // Get standalone CL: entries
+                  const standaloneCLs = currentWord.definitions.filter(def => isClassifierEntry(def));
+                  
+                  // Extract inline CLs like "(CL:首shǒu,支zhī)" from regular definitions
+                  const inlineCLs = regularDefs
+                    .map(def => extractInlineClassifier(def).classifier)
+                    .filter((cl): cl is string => cl !== null);
+                  
+                  // Combine all classifier sources
+                  const allClassifiers = [...standaloneCLs, ...inlineCLs].flatMap(def => parseClassifiers(def));
                   
                   return (
                     <>
@@ -1592,7 +1759,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                               color: colors.foreground,
                               lineHeight: 1.5,
                             }}>
-                              {convertNumberedPinyin(def)}
+                              {cleanDefinition(def)}
                             </span>
                           </div>
                         ));
@@ -1614,8 +1781,18 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                 {/* Measure Words (Classifiers) for Character */}
                 {(() => {
                   const allDefs = cedictData[currentCharacter.character]?.definitions || [];
-                  const classifierDefs = allDefs.filter(isClassifierEntry);
-                  const allClassifiers = classifierDefs.flatMap(parseClassifiers);
+                  
+                  // Get standalone CL: entries
+                  const standaloneCLs = allDefs.filter(isClassifierEntry);
+                  
+                  // Extract inline CLs from other definitions
+                  const inlineCLs = allDefs
+                    .filter(def => !isClassifierEntry(def))
+                    .map(def => extractInlineClassifier(def).classifier)
+                    .filter((cl): cl is string => cl !== null);
+                  
+                  // Combine all classifier sources
+                  const allClassifiers = [...standaloneCLs, ...inlineCLs].flatMap(parseClassifiers);
                   
                   if (allClassifiers.length === 0) return null;
                   
@@ -1962,6 +2139,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
           </ScrollArea>
         </div>
       )}
-    </div>
+      </div>
+    </CedictProvider>
   );
 }

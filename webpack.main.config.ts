@@ -16,5 +16,6 @@ export const mainConfig: Configuration = {
     'electron-store': 'commonjs electron-store',
     'tesseract.js': 'commonjs tesseract.js',
     'nodejieba': 'commonjs nodejieba',
+    'better-sqlite3': 'commonjs better-sqlite3',
   },
 };

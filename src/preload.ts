@@ -52,6 +52,12 @@ const electronAPI = {
   windowMinimize: function() { return ipcRenderer.invoke('window-minimize'); },
   windowMaximize: function() { return ipcRenderer.invoke('window-maximize'); },
   windowClose: function() { return ipcRenderer.invoke('window-close'); },
+
+  // Dictionary search (SQLite + FTS5)
+  dictionarySearch: function(query, limit) { return ipcRenderer.invoke('dictionary-search', query, limit); },
+  dictionaryGet: function(simplified) { return ipcRenderer.invoke('dictionary-get', simplified); },
+  dictionaryGetMany: function(simplifiedList) { return ipcRenderer.invoke('dictionary-get-many', simplifiedList); },
+  dictionaryReady: function() { return ipcRenderer.invoke('dictionary-ready'); },
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);
