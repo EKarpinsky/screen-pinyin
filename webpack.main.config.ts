@@ -17,5 +17,6 @@ export const mainConfig: Configuration = {
     'tesseract.js': 'commonjs tesseract.js',
     'nodejieba': 'commonjs nodejieba',
     'better-sqlite3': 'commonjs better-sqlite3',
+    'robotjs': 'commonjs robotjs',
   },
 };

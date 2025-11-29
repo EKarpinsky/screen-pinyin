@@ -4,6 +4,7 @@ import { SettingsHeader } from './SettingsHeader';
 import { ApiKeyField } from './ApiKeyField';
 import { RegionField } from './RegionField';
 import { HotkeyDisplay } from './HotkeyDisplay';
+import { ClipboardMonitorToggle } from './ClipboardMonitorToggle';
 import { SettingsActions } from './SettingsActions';
 import { AzureRegion } from './types';
 
@@ -81,6 +82,10 @@ export function SettingsWindow() {
         />
 
         <HotkeyDisplay />
+
+        <div className="border-t border-[var(--border)] pt-4 mt-2">
+          <ClipboardMonitorToggle />
+        </div>
 
         <SettingsActions
           onCancel={handleClose}

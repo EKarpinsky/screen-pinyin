@@ -46,6 +46,7 @@
     "nodejieba": "^3.5.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "robotjs": "^0.6.0",
     "screenshot-desktop": "^1.15.0",
     "sharp": "^0.33.5",
     "tailwind-merge": "^3.3.1",

@@ -58,6 +58,28 @@ const electronAPI = {
   dictionaryGet: function(simplified) { return ipcRenderer.invoke('dictionary-get', simplified); },
   dictionaryGetMany: function(simplifiedList) { return ipcRenderer.invoke('dictionary-get-many', simplifiedList); },
   dictionaryReady: function() { return ipcRenderer.invoke('dictionary-ready'); },
+
+  // Clipboard monitor
+  toggleClipboardMonitor: function(enabled) { return ipcRenderer.invoke('toggle-clipboard-monitor', enabled); },
+  getClipboardMonitorStatus: function() { return ipcRenderer.invoke('get-clipboard-monitor-status'); },
+  
+  // Clipboard popup (for popup window)
+  hideClipboardPopup: function() { return ipcRenderer.invoke('hide-clipboard-popup'); },
+  openInApp: function(chinese) { return ipcRenderer.invoke('open-in-app', chinese); },
+  onClipboardData: function(callback) {
+    ipcRenderer.on('clipboard-data', callback);
+  },
+  offClipboardData: function(callback) {
+    ipcRenderer.removeListener('clipboard-data', callback);
+  },
+  
+  // Lookup text event (for main window)
+  onLookupText: function(callback) {
+    ipcRenderer.on('lookup-text', callback);
+  },
+  offLookupText: function(callback) {
+    ipcRenderer.removeListener('lookup-text', callback);
+  },
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);

@@ -49,6 +49,14 @@ const config: ForgeConfig = {
               js: './src/preload.ts',
             },
           },
+          {
+            html: './src/renderer/clipboard-popup.html',
+            js: './src/renderer/clipboard-popup.tsx',
+            name: 'clipboard_popup',
+            preload: {
+              js: './src/preload.ts',
+            },
+          },
         ],
       },
     }),

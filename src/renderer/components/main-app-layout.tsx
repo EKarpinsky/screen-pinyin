@@ -152,9 +152,22 @@ export function MainAppLayout() {
       }
     };
 
+    // Handler for lookup from clipboard popup
+    const handleLookupText = (_event: unknown, chinese: string) => {
+      console.log('Lookup text received:', chinese);
+      setResultsData({
+        original: chinese,
+        pinyin: '',  // Will be filled by ResultsViewWithDetail
+        translation: '',
+        mode: 'lookup',
+      });
+      setCurrentView('results');
+    };
+
     // Listen for events from main process
     window.electronAPI.onNewCapture(handleNewCapture);
     window.electronAPI.onShowResultsFromHistory(handleShowResultsFromHistory);
+    window.electronAPI.onLookupText?.(handleLookupText);
 
     // Check for pending capture or results on mount (in case window wasn't ready when event was sent)
     const checkPending = async () => {
@@ -182,6 +195,7 @@ export function MainAppLayout() {
     return () => {
       window.electronAPI.offNewCapture(handleNewCapture);
       window.electronAPI.offShowResultsFromHistory(handleShowResultsFromHistory);
+      window.electronAPI.offLookupText?.(handleLookupText);
     };
   }, []);
 
@@ -468,6 +482,7 @@ function SettingsView() {
   const [apiKey, setApiKey] = useState('');
   const [region, setRegion] = useState('eastus');
   const [showApiKey, setShowApiKey] = useState(false);
+  const [clipboardMonitor, setClipboardMonitor] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [saved, setSaved] = useState(false);
 
@@ -476,8 +491,10 @@ function SettingsView() {
       try {
         const storedApiKey = await window.electronAPI.getStoreValue('azureApiKey') as string;
         const storedRegion = await window.electronAPI.getStoreValue('azureRegion') as string;
+        const monitorStatus = await window.electronAPI.getClipboardMonitorStatus?.();
         if (storedApiKey) setApiKey(storedApiKey);
         if (storedRegion) setRegion(storedRegion);
+        setClipboardMonitor(monitorStatus || false);
       } catch (err) {
         console.error('Failed to load settings:', err);
       } finally {
@@ -486,6 +503,17 @@ function SettingsView() {
     };
     loadSettings();
   }, []);
+
+  const handleToggleClipboardMonitor = async () => {
+    const newValue = !clipboardMonitor;
+    setClipboardMonitor(newValue);
+    try {
+      await window.electronAPI.toggleClipboardMonitor?.(newValue);
+    } catch (err) {
+      console.error('Failed to toggle clipboard monitor:', err);
+      setClipboardMonitor(!newValue);
+    }
+  };
 
   const handleSave = async () => {
     await window.electronAPI.setStoreValue('azureApiKey', apiKey);
@@ -606,6 +634,38 @@ function SettingsView() {
                   </kbd>
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* Clipboard Monitor Toggle */}
+          <div className="border-t border-[var(--border)] pt-5 mt-1">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-[var(--foreground)]">
+                  Quick Pinyin Lookup
+                </span>
+                <span className="text-xs text-[var(--muted-foreground)]">
+                  Alt+P to show pinyin for copied text
+                </span>
+              </div>
+              <button
+                onClick={handleToggleClipboardMonitor}
+                className={cn(
+                  "relative w-11 h-6 rounded-full transition-colors duration-200",
+                  "focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2",
+                  clipboardMonitor 
+                    ? "bg-[var(--primary)]" 
+                    : "bg-[var(--muted)]"
+                )}
+              >
+                <span
+                  className={cn(
+                    "absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm",
+                    "transition-transform duration-200",
+                    clipboardMonitor ? "translate-x-5" : "translate-x-0"
+                  )}
+                />
+              </button>
             </div>
           </div>
 

@@ -5,6 +5,7 @@ import { createWorker, Worker } from 'tesseract.js';
 import axios from 'axios';
 import nodejieba from 'nodejieba';
 import { initDictionaryDB, searchDictionary, getEntry, getEntries, closeDictionaryDB, isDictionaryReady } from './dictionary-db';
+import { triggerClipboardLookup, ClipboardData } from './clipboard-monitor';
 
 // Handle Squirrel events for Windows installer
 if (require('electron-squirrel-startup')) {
@@ -16,13 +17,16 @@ declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
 declare const OVERLAY_WINDOW_WEBPACK_ENTRY: string;
 declare const OVERLAY_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
+declare const CLIPBOARD_POPUP_WEBPACK_ENTRY: string;
+declare const CLIPBOARD_POPUP_PRELOAD_WEBPACK_ENTRY: string;
 
 // Store instance
 let store: Store;
 
-// Window references - only main and overlay now
+// Window references
 let mainWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
+let clipboardPopup: BrowserWindow | null = null;
 let tray: Tray | null = null;
 
 // Store screenshot buffer for cropping
@@ -135,6 +139,79 @@ const createOverlayWindow = async (): Promise<void> => {
   });
 };
 
+// Clipboard popup window - small transparent tooltip
+const createClipboardPopup = (): void => {
+  if (clipboardPopup && !clipboardPopup.isDestroyed()) {
+    return;
+  }
+
+  clipboardPopup = new BrowserWindow({
+    width: 400,
+    height: 50,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    focusable: false, // Don't steal focus from other apps
+    show: false,
+    webPreferences: {
+      preload: CLIPBOARD_POPUP_PRELOAD_WEBPACK_ENTRY,
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+    },
+  });
+
+  clipboardPopup.loadURL(CLIPBOARD_POPUP_WEBPACK_ENTRY);
+  clipboardPopup.setAlwaysOnTop(true, 'pop-up-menu');
+  
+  // Prevent the popup from appearing in alt-tab
+  clipboardPopup.setSkipTaskbar(true);
+
+  clipboardPopup.on('closed', () => {
+    clipboardPopup = null;
+  });
+};
+
+const showClipboardPopup = (data: ClipboardData): void => {
+  if (!clipboardPopup || clipboardPopup.isDestroyed()) {
+    createClipboardPopup();
+  }
+
+  // Position near cursor
+  const cursor = screen.getCursorScreenPoint();
+  const display = screen.getDisplayNearestPoint(cursor);
+  
+  // Position popup above and slightly to the right of cursor
+  let x = cursor.x + 10;
+  let y = cursor.y - 60;
+  
+  // Keep popup on screen
+  const popupWidth = 400;
+  const popupHeight = 50;
+  
+  if (x + popupWidth > display.bounds.x + display.bounds.width) {
+    x = cursor.x - popupWidth - 10;
+  }
+  if (y < display.bounds.y) {
+    y = cursor.y + 20;
+  }
+
+  clipboardPopup?.setBounds({ x, y, width: popupWidth, height: popupHeight });
+  
+  // Send data to popup
+  clipboardPopup?.webContents.send('clipboard-data', data);
+  clipboardPopup?.showInactive(); // Show without stealing focus
+};
+
+const hideClipboardPopup = (): void => {
+  clipboardPopup?.hide();
+};
+
 const showMainWindow = (): void => {
   if (mainWindow) {
     mainWindow.show();
@@ -176,12 +253,75 @@ const createTray = (): void => {
 const registerHotkey = (): void => {
   const hotkey = store.get('hotkey', 'CommandOrControl+Shift+C') as string;
 
-  globalShortcut.unregisterAll();
+  // Unregister capture hotkey only, preserve popup hotkey
+  globalShortcut.unregister(hotkey);
 
   const success = globalShortcut.register(hotkey, startCaptureWorkflow);
   if (!success) {
     console.error('Failed to register hotkey:', hotkey);
   }
+};
+
+// Popup hotkey for quick pinyin lookup (Alt+P to avoid conflicts)
+const POPUP_HOTKEY = 'Alt+P';
+let popupHotkeyRegistered = false;
+
+const registerPopupHotkey = (): void => {
+  if (popupHotkeyRegistered) return;
+  
+  const { clipboard } = require('electron');
+  const { exec } = require('child_process');
+  
+  const success = globalShortcut.register(POPUP_HOTKEY, async () => {
+    console.log('Popup hotkey triggered');
+    
+    // Store old clipboard to detect if copy worked
+    const oldClipboard = clipboard.readText();
+    console.log('Clipboard before Ctrl+C:', oldClipboard?.slice(0, 50));
+    
+    // Use PowerShell to send Ctrl+C via Windows Forms SendKeys
+    await new Promise<void>((resolve, reject) => {
+      exec(
+        'powershell -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait(\'^c\')"',
+        (error) => {
+          if (error) {
+            console.error('SendKeys error:', error);
+            reject(error);
+          } else {
+            resolve();
+          }
+        }
+      );
+    });
+    
+    // Wait for clipboard to update
+    await new Promise(resolve => setTimeout(resolve, 150));
+    
+    const newClipboard = clipboard.readText();
+    console.log('Clipboard after Ctrl+C:', newClipboard?.slice(0, 50));
+    
+    const data = await triggerClipboardLookup();
+    if (data) {
+      showClipboardPopup(data);
+    } else {
+      console.log('No Chinese text found in clipboard');
+    }
+  });
+  
+  if (success) {
+    popupHotkeyRegistered = true;
+    console.log('Popup hotkey registered:', POPUP_HOTKEY);
+  } else {
+    console.error('Failed to register popup hotkey:', POPUP_HOTKEY);
+  }
+};
+
+const unregisterPopupHotkey = (): void => {
+  if (!popupHotkeyRegistered) return;
+  
+  globalShortcut.unregister(POPUP_HOTKEY);
+  popupHotkeyRegistered = false;
+  console.log('Popup hotkey unregistered');
 };
 
 const startCaptureWorkflow = async (): Promise<void> => {
@@ -519,6 +659,38 @@ const setupIpcHandlers = (): void => {
   ipcMain.handle('dictionary-ready', () => {
     return isDictionaryReady();
   });
+
+  // Clipboard popup handlers
+  ipcMain.handle('hide-clipboard-popup', () => {
+    hideClipboardPopup();
+  });
+
+  ipcMain.handle('open-in-app', (_event, chinese: string) => {
+    // Show main window with lookup mode
+    showMainWindow();
+    mainWindow?.webContents.send('lookup-text', chinese);
+  });
+
+  ipcMain.handle('toggle-clipboard-monitor', (_event, enabled: boolean) => {
+    store.set('clipboardMonitorEnabled', enabled);
+    if (enabled) {
+      registerPopupHotkey();
+    } else {
+      unregisterPopupHotkey();
+    }
+  });
+
+  ipcMain.handle('get-clipboard-monitor-status', () => {
+    return store.get('clipboardMonitorEnabled', false);
+  });
+
+  // Manual trigger for popup (for testing or alternative triggers)
+  ipcMain.handle('trigger-clipboard-popup', async () => {
+    const data = await triggerClipboardLookup();
+    if (data) {
+      showClipboardPopup(data);
+    }
+  });
 };
 
 // App lifecycle
@@ -531,6 +703,7 @@ app.whenReady().then(async () => {
       azureRegion: 'eastus',
       hotkey: 'CommandOrControl+Shift+C',
       translationHistory: [],
+      clipboardMonitorEnabled: false,
     },
   });
 
@@ -552,6 +725,13 @@ app.whenReady().then(async () => {
   // Create and show main window on startup
   createMainWindow();
   mainWindow?.show();
+
+  // Register popup hotkey if enabled
+  const clipboardMonitorEnabled = store.get('clipboardMonitorEnabled', false);
+  if (clipboardMonitorEnabled) {
+    createClipboardPopup();
+    registerPopupHotkey();
+  }
 
   // Pre-initialize OCR worker
   await initOCRWorker();
