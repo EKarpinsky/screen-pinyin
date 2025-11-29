@@ -1,6 +1,7 @@
 import path from 'path';
 
-const rootDir = path.resolve(__dirname, '..');
+// Use process.cwd() for consistent resolution from project root
+const rootDir = process.cwd();
 
 export const aliases = {
   '@': path.resolve(rootDir, 'src'),

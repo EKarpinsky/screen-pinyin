@@ -1,6 +1,7 @@
 import type { Configuration } from 'webpack';
 import { rules } from './webpack.rules';
 import { aliases } from './config/aliases';
+import path from 'path';
 
 export const rendererConfig: Configuration = {
   module: {
@@ -10,14 +11,18 @@ export const rendererConfig: Configuration = {
         test: /\.css$/,
         use: [
           'style-loader',
-          'css-loader',
+          {
+            loader: 'css-loader',
+            options: {
+              importLoaders: 1,
+              modules: false, // Disable CSS modules to prevent class renaming
+            },
+          },
           {
             loader: 'postcss-loader',
             options: {
               postcssOptions: {
-                plugins: {
-                  '@tailwindcss/postcss': {},
-                },
+                config: path.resolve(__dirname, 'postcss.config.js'),
               },
             },
           },
@@ -29,10 +34,10 @@ export const rendererConfig: Configuration = {
     extensions: ['.js', '.ts', '.jsx', '.tsx', '.css', '.json'],
     alias: aliases,
   },
-  // Prevent webpack from injecting __dirname/__filename which break in Electron sandbox
+  // Enable __dirname/__filename for Tailwind/PostCSS compatibility
   node: {
-    __dirname: false,
-    __filename: false,
+    __dirname: true,
+    __filename: true,
   },
 };
 

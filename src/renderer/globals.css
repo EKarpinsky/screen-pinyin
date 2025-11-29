@@ -16,6 +16,9 @@
   --sidebar-active: #e8e2d9;
   --text-secondary: rgba(26, 26, 26, 0.7);
   --text-tertiary: rgba(26, 26, 26, 0.5);
+  --secondary-foreground: rgba(26, 26, 26, 0.7);
+  --tertiary-foreground: rgba(26, 26, 26, 0.5);
+  --destructive: #b44;
   --hover-bg: rgba(0, 0, 0, 0.04);
   --accent-bg: rgba(74, 55, 40, 0.08);
   --accent-border: rgba(74, 55, 40, 0.15);
@@ -37,15 +40,20 @@
   --sidebar-active: #2a2724;
   --text-secondary: rgba(245, 243, 239, 0.7);
   --text-tertiary: rgba(245, 243, 239, 0.5);
+  --secondary-foreground: rgba(245, 243, 239, 0.7);
+  --tertiary-foreground: rgba(245, 243, 239, 0.5);
+  --destructive: #b44;
   --hover-bg: rgba(255, 255, 255, 0.06);
   --accent-bg: rgba(212, 165, 116, 0.12);
   --accent-border: rgba(212, 165, 116, 0.2);
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
 }
 
 body {

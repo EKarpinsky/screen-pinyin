@@ -6,13 +6,9 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;" />
     <title>Screen Selection</title>
     <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
+      /* Keep overlay-specific styles - Tailwind reset handles the rest */
       html, body { width: 100%; height: 100%; overflow: hidden; background-color: transparent !important; }
       #root { width: 100%; height: 100%; background-color: transparent !important; }
-      @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-      }
     </style>
   </head>
   <body>
