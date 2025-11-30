@@ -51,7 +51,7 @@ export function searchDictionary(query: string, limit = 10): DictionaryEntry[] {
     return [];
   }
   
-  const trimmedQuery = query.trim();
+  const trimmedQuery = query.trim().toLowerCase();
   
   try {
     // Try exact match first for Chinese characters
@@ -84,7 +84,7 @@ export function searchDictionary(query: string, limit = 10): DictionaryEntry[] {
       return results.slice(0, limit);
     }
     
-    // FTS5 MATCH query with prefix search
+    // FTS5 MATCH query - fetch more results for re-ranking
     const stmt = db.prepare(`
       SELECT simplified, traditional, pinyin, definitions, rank
       FROM dict_fts 
@@ -95,7 +95,50 @@ export function searchDictionary(query: string, limit = 10): DictionaryEntry[] {
     
     // Escape special FTS5 characters and add prefix matching
     const escapedQuery = escapeQuery(trimmedQuery) + '*';
-    return stmt.all(escapedQuery, limit) as DictionaryEntry[];
+    const rawResults = stmt.all(escapedQuery, limit * 5) as DictionaryEntry[];
+    
+    // Re-rank results for English queries to prioritize:
+    // 1. Shorter Chinese words (simpler = more common)
+    // 2. Definitions that START with the search term
+    // 3. Definitions that have the term as a standalone word
+    const isEnglishQuery = /^[a-zA-Z\s]+$/.test(trimmedQuery);
+    
+    if (isEnglishQuery && rawResults.length > 0) {
+      const scored = rawResults.map(entry => {
+        let score = 0;
+        const defs = entry.definitions.toLowerCase();
+        const words = defs.split(/[;,]/);
+        
+        // Huge bonus: definition starts with exact search term
+        if (words.some(w => w.trim().startsWith(trimmedQuery))) {
+          score += 1000;
+        }
+        
+        // Big bonus: exact word match (not just substring)
+        const wordBoundaryRegex = new RegExp(`\\b${trimmedQuery}\\b`);
+        if (wordBoundaryRegex.test(defs)) {
+          score += 500;
+        }
+        
+        // Bonus for shorter Chinese words (1 char = +300, 2 char = +200, etc.)
+        score += Math.max(0, 400 - entry.simplified.length * 100);
+        
+        // Small bonus if search term is in first definition
+        const firstDef = words[0]?.trim() || '';
+        if (firstDef.includes(trimmedQuery)) {
+          score += 100;
+        }
+        
+        return { entry, score };
+      });
+      
+      // Sort by score (descending), then by original FTS rank
+      scored.sort((a, b) => b.score - a.score);
+      
+      return scored.slice(0, limit).map(s => s.entry);
+    }
+    
+    return rawResults.slice(0, limit);
   } catch (error) {
     console.error('Dictionary search error:', error);
     return [];

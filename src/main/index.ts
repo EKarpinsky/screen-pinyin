@@ -6,6 +6,7 @@ import axios from 'axios';
 import nodejieba from 'nodejieba';
 import { initDictionaryDB, searchDictionary, getEntry, getEntries, closeDictionaryDB, isDictionaryReady } from './dictionary-db';
 import { triggerClipboardLookup, ClipboardData } from './clipboard-monitor';
+import { filterDefinitions } from '../shared/definition-utils';
 
 // Handle Squirrel events for Windows installer
 if (require('electron-squirrel-startup')) {
@@ -464,6 +465,37 @@ const setupIpcHandlers = (): void => {
   // Translation handler
   ipcMain.handle('translate', async (_event, text: string) => {
     try {
+      // Check dictionary first - skip Azure API if found
+      const dictEntry = getEntry(text);
+      if (dictEntry) {
+        const pinyin = dictEntry.pinyin;
+        const translation = filterDefinitions(dictEntry.definitions).slice(0, 3).join('; ');
+
+        // Still save to history
+        const history = store.get('translationHistory', []) as HistoryItem[];
+        const newItem: HistoryItem = {
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          chinese: text,
+          pinyin,
+          english: translation,
+          timestamp: Date.now(),
+        };
+        history.unshift(newItem);
+        if (history.length > 100) {
+          history.pop();
+        }
+        store.set('translationHistory', history);
+
+        return {
+          success: true,
+          original: text,
+          pinyin,
+          translation,
+          fromDictionary: true,
+        };
+      }
+
+      // Not in dictionary - use Azure API
       const apiKey = store.get('azureApiKey', '') as string;
       const region = store.get('azureRegion', 'eastus') as string;
 

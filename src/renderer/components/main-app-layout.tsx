@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Activity } from 'react';
 import { X, Clock, Settings, Search, Check, Minus, Square, Copy, Eye, EyeOff } from 'lucide-react';
 import { SearchView } from './search-view';
 import { ResultsViewWithDetail } from './results-view-with-detail';
@@ -222,10 +222,12 @@ export function MainAppLayout() {
     setCurrentView('results');
   };
 
-  const handleBackToHistory = () => {
+  const handleBack = () => {
+    // Return to search if we came from a lookup, otherwise go to history
+    const returnToSearch = resultsData?.mode === 'lookup';
     setResultsData(null);
     setProcessError(null);
-    setCurrentView('history');
+    setCurrentView(returnToSearch ? 'search' : 'history');
   };
 
   // Handle search item click
@@ -332,7 +334,7 @@ export function MainAppLayout() {
         <SidebarButton
           icon={<Clock size={22} />}
           isActive={currentView === 'history' || currentView === 'results'}
-          onClick={() => currentView === 'results' ? handleBackToHistory() : setCurrentView('history')}
+          onClick={() => currentView === 'results' ? handleBack() : setCurrentView('history')}
           tooltip="History"
         />
         <SidebarButton
@@ -372,13 +374,14 @@ export function MainAppLayout() {
           {currentView === 'history' && (
             <TranslationHistory onItemClick={handleHistoryItemClick} />
           )}
-          {currentView === 'search' && (
+          {/* Activity preserves SearchView state when navigating to results */}
+          <Activity mode={currentView === 'search' ? 'visible' : 'hidden'}>
             <SearchView
               historyItems={historyItems}
               onItemClick={handleSearchItemClick}
               onTranslateText={handleTranslateText}
             />
-          )}
+          </Activity>
           {currentView === 'settings' && (
             <SettingsView />
           )}
@@ -387,7 +390,7 @@ export function MainAppLayout() {
               data={resultsData}
               isProcessing={isProcessing}
               error={processError}
-              onBack={handleBackToHistory}
+              onBack={handleBack}
             />
           )}
         </div>

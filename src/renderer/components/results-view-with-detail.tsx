@@ -19,6 +19,7 @@ import hskDictionary from '../../data/hsk-dictionary.json';
 import sentencesDictionary from '../../data/sentences-dictionary.json';
 import cedictDictionaryJson from '../../data/cedict-dictionary.json';
 import { TaggedWord } from '../../shared/types';
+import { isVariantEntry, isSurnameEntry, isClassifierEntry, filterDefinitions, extractInlineClassifier, hasInlineClassifier } from '../../shared/definition-utils';
 
 // Types
 interface HSKEntry {
@@ -218,32 +219,11 @@ function isChineseChar(char: string): boolean {
          (code >= 0x2F00 && code <= 0x2FDF);
 }
 
-// Extract inline classifier from definition like "song (CL:首shǒu,支zhī)"
-function extractInlineClassifier(def: string): { cleanDef: string; classifier: string | null } {
-  const match = def.match(/\(CL:([^)]+)\)/);
-  if (match) {
-    return {
-      cleanDef: def.replace(/\s*\(CL:[^)]+\)/, '').trim(),
-      classifier: `CL:${match[1]}`
-    };
-  }
-  return { cleanDef: def, classifier: null };
-}
-
 // Clean up definition text (convert numbered pinyin, strip inline CL)
+// Uses extractInlineClassifier from shared/definition-utils.ts
 function cleanDefinition(def: string): string {
   const { cleanDef } = extractInlineClassifier(def);
   return convertNumberedPinyin(cleanDef);
-}
-
-// Check if a definition is a standalone classifier entry
-function isClassifierEntry(def: string): boolean {
-  return def.startsWith('CL:');
-}
-
-// Check if definition contains an inline classifier
-function hasInlineClassifier(def: string): boolean {
-  return /\(CL:[^)]+\)/.test(def);
 }
 
 // Parse classifier string like "CL:張|张[zhang1],套[tao4],幅[fu2]" into structured data
@@ -273,6 +253,44 @@ function parseClassifiers(classifierString: string): Array<{ character: string; 
     
     return null;
   }).filter((item): item is { character: string; pinyin: string } => item !== null);
+}
+
+// isVariantEntry, isSurnameEntry, isClassifierEntry, filterDefinitions, extractInlineClassifier
+// are imported from shared/definition-utils.ts
+
+// Parse "variant of 兔[tu4]" or "variant of 兔tù" into structured data
+function parseVariant(variantString: string): { character: string; pinyin: string; type: string } | null {
+  if (!isVariantEntry(variantString)) return null;
+  
+  // Extract the type (e.g., "old variant", "archaic variant", or just "variant")
+  const typeMatch = variantString.match(/^(old |archaic |Japanese |)?variant of /i);
+  const type = typeMatch ? (typeMatch[1]?.trim() || '') + 'variant' : 'variant';
+  
+  // Extract character and pinyin from patterns like "兔[tu4]" or "兔tù" or "電|电[dian4]"
+  const content = variantString.replace(/^(old |archaic |Japanese |)?variant of /i, '').trim();
+  
+  // Match pattern with brackets: "電|电[dian4]" or "兔[tu4]"
+  const bracketMatch = content.match(/(?:([^\|]+)\|)?([^\[]+)\[([^\]]+)\]/);
+  if (bracketMatch) {
+    const [, , char, pinyinNum] = bracketMatch;
+    const pinyin = convertNumberedPinyin(`[${pinyinNum}]`);
+    return { character: char.trim(), pinyin, type };
+  }
+  
+  // Match pattern without brackets: "兔tù" 
+  const directMatch = content.match(/([^\s]+?)([a-zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü]+\d?)/i);
+  if (directMatch) {
+    const [, char, pinyin] = directMatch;
+    return { character: char.trim(), pinyin: pinyin.trim(), type };
+  }
+  
+  // Just a character with no pinyin
+  const charOnly = content.match(/^([^\s,;]+)/);
+  if (charOnly) {
+    return { character: charOnly[1].trim(), pinyin: '', type };
+  }
+  
+  return null;
 }
 
 // Check if string contains only Chinese characters
@@ -362,10 +380,14 @@ function ClickableChar({
     );
   }
 
-  // Get definition - Priority: CC-CEDICT → makemeahanzi fallback
-  const cedictDef = cedictData[char]?.definitions?.filter((d: string) => !d.startsWith('CL:'))[0];
-  const definition = convertNumberedPinyin(cedictDef || charData.definition || '—');
-  const pinyin = charData.pinyin.length > 0 ? charData.pinyin.join(', ') : '—';
+  // Get definition - Priority: CC-CEDICT (filtered) → CC-CEDICT (any) → makemeahanzi fallback
+  const allDefs = cedictData[char]?.definitions || [];
+  const filteredDefs = allDefs.filter((d: string) => 
+    !d.startsWith('CL:') && !isVariantEntry(d) && !isSurnameEntry(d)
+  );
+  const cedictDef = filteredDefs[0] || allDefs.filter((d: string) => !d.startsWith('CL:'))[0];
+  const definition = convertNumberedPinyin(cedictDef || charData?.definition || '—');
+  const pinyin = charData?.pinyin?.length > 0 ? charData.pinyin.join(', ') : '—';
   const hskLevel = hskData[char]?.level;
 
   return (
@@ -484,11 +506,20 @@ function ClickableWord({
   let definition = '';
   let pinyin = '';
   if (wordData) {
-    definition = convertNumberedPinyin(wordData.definitions.filter((d: string) => !d.startsWith('CL:')).slice(0, 2).join('; '));
+    const allDefs = wordData.definitions || [];
+    const filteredDefs = allDefs.filter((d: string) => 
+      !d.startsWith('CL:') && !isVariantEntry(d) && !isSurnameEntry(d)
+    );
+    const defsToShow = filteredDefs.length > 0 ? filteredDefs : allDefs.filter((d: string) => !d.startsWith('CL:'));
+    definition = convertNumberedPinyin(defsToShow.slice(0, 2).join('; '));
     pinyin = convertNumberedPinyin(wordData.pinyin);
   } else if (charData) {
-    // Priority: CC-CEDICT → makemeahanzi fallback
-    const cedictDef = cedictData[word]?.definitions?.filter((d: string) => !d.startsWith('CL:'))[0];
+    // Priority: CC-CEDICT (filtered) → CC-CEDICT (any) → makemeahanzi fallback
+    const allDefs = cedictData[word]?.definitions || [];
+    const filteredDefs = allDefs.filter((d: string) => 
+      !d.startsWith('CL:') && !isVariantEntry(d) && !isSurnameEntry(d)
+    );
+    const cedictDef = filteredDefs[0] || allDefs.filter((d: string) => !d.startsWith('CL:'))[0];
     definition = convertNumberedPinyin(cedictDef || charData.definition || '');
     pinyin = charData.pinyin?.join(', ') || '';
   }
@@ -705,17 +736,29 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
           }
         });
       } else {
-        // Fall back to character data
+        // Fall back to character data from hanzi dictionary
         const charData = dictionary[data.original] || dictionary[data.original[0]];
         if (charData) {
           setSelectedDetail({ type: 'character', data: charData });
+        } else {
+          // Create fallback CharacterData from the passed-in data (from search result)
+          // This handles characters that exist in CEDICT but not in hanzi dictionary
+          const fallbackCharData: CharacterData = {
+            character: data.original,
+            pinyin: data.pinyin ? data.pinyin.split(', ') : [],
+            definition: data.translation || '',
+            radical: '',
+            decomposition: '',
+            etymology: { type: 'unknown' },
+          };
+          setSelectedDetail({ type: 'character', data: fallbackCharData });
         }
       }
       setActiveTab('overview');
       setCurrentExampleIndex(0);
       setCurrentWordExampleIndex(0);
     }
-  }, [isLookupMode, data.original]);
+  }, [isLookupMode, data.original, data.pinyin, data.translation]);
 
   // Handle ESC key
   useEffect(() => {
@@ -1452,8 +1495,12 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                   <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                     {currentWord.word.split('').map((char, i) => {
                       const charData = dictionary[char];
-                      // Get short definition - Priority: CC-CEDICT → makemeahanzi fallback
-                      const cedictDef = cedictData[char]?.definitions?.filter((d: string) => !d.startsWith('CL:'))[0];
+                      // Get short definition - Priority: CC-CEDICT (filtered) → CC-CEDICT (any) → makemeahanzi
+                      const allDefs = cedictData[char]?.definitions || [];
+                      const filteredDefs = allDefs.filter((d: string) => 
+                        !d.startsWith('CL:') && !isVariantEntry(d) && !isSurnameEntry(d)
+                      );
+                      const cedictDef = filteredDefs[0] || allDefs.filter((d: string) => !d.startsWith('CL:'))[0];
                       const fullDef = convertNumberedPinyin(cedictDef || charData?.definition || '');
                       const shortDef = fullDef 
                         ? fullDef.split(/[,;]/)[0].trim().substring(0, 25) + (fullDef.length > 25 ? '...' : '')
@@ -1732,8 +1779,17 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                   </div>
                   <div style={{ margin: 0 }}>
                     {(() => {
-                      // Priority: CC-CEDICT → makemeahanzi fallback
-                      const cedictDefs = cedictData[currentCharacter.character]?.definitions?.filter((d: string) => !d.startsWith('CL:'));
+                      // Priority: CC-CEDICT (filtered) → CC-CEDICT (all) → makemeahanzi fallback
+                      const allCedictDefs = cedictData[currentCharacter.character]?.definitions || [];
+                      // First try filtered definitions (no CL:, variants, surnames)
+                      const filteredDefs = allCedictDefs.filter((d: string) => 
+                        !d.startsWith('CL:') && !isVariantEntry(d) && !isSurnameEntry(d)
+                      );
+                      // If all filtered out, fall back to any non-CL definition
+                      const cedictDefs = filteredDefs.length > 0 
+                        ? filteredDefs 
+                        : allCedictDefs.filter((d: string) => !d.startsWith('CL:'));
+                      
                       if (cedictDefs && cedictDefs.length > 0) {
                         return cedictDefs.slice(0, 4).map((def, i) => (
                           <div 
@@ -1777,6 +1833,86 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                     })()}
                   </div>
                 </div>
+
+                {/* Variants - clickable links to variant characters */}
+                {(() => {
+                  const allDefs = cedictData[currentCharacter.character]?.definitions || [];
+                  const variants = allDefs
+                    .filter(isVariantEntry)
+                    .map(parseVariant)
+                    .filter((v): v is { character: string; pinyin: string; type: string } => v !== null);
+                  
+                  if (variants.length === 0) return null;
+                  
+                  return (
+                    <div style={{ animation: 'slideUp 0.3s 0.06s ease-out backwards' }}>
+                      <div style={{
+                        fontSize: '0.65rem',
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.1em',
+                        color: colors.muted,
+                        marginBottom: 10,
+                      }}>
+                        {variants.length === 1 ? 'Variant' : 'Variants'}
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.625rem' }}>
+                        {variants.map((variant, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => handleCharacterClick(variant.character)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'baseline',
+                              gap: '0.375rem',
+                              padding: '0.375rem 0.75rem',
+                              background: 'var(--accent-bg)',
+                              border: '1px solid var(--accent-border)',
+                              borderRadius: '0.25rem',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease',
+                              fontFamily: 'inherit',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.borderColor = 'var(--primary)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.borderColor = 'var(--accent-border)';
+                            }}
+                          >
+                            <span style={{
+                              fontSize: '1.125rem',
+                              lineHeight: 1,
+                              color: colors.foreground,
+                              fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
+                            }}>
+                              {variant.character}
+                            </span>
+                            {variant.pinyin && (
+                              <span style={{
+                                fontSize: '0.75rem',
+                                color: colors.muted,
+                                letterSpacing: '0.02em',
+                                fontFamily: '"Consolas", "Monaco", monospace',
+                              }}>
+                                {variant.pinyin}
+                              </span>
+                            )}
+                            {variant.type !== 'variant' && (
+                              <span style={{
+                                fontSize: '0.6rem',
+                                color: colors.muted,
+                                opacity: 0.7,
+                              }}>
+                                ({variant.type})
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Measure Words (Classifiers) for Character */}
                 {(() => {
