@@ -5,11 +5,11 @@ import { useTheme } from '../../contexts/theme-context';
 // Sub-components
 import { TitleBar } from './TitleBar';
 import { Sidebar } from './Sidebar';
-import { SettingsPanel } from './SettingsPanel';
-import { ResultsPane } from './ResultsPane';
 
 // External components
 import { SearchView } from '../search-view';
+import { SettingsPanel } from '../settings-panel';
+import { ResultsViewWithDetail } from '../results-view-with-detail';
 import { TranslationHistory } from '../history';
 import { FlashcardDeck } from '../flashcards';
 import { FlashcardReview } from '../flashcards/FlashcardReview';
@@ -356,12 +356,37 @@ export function MainAppLayout() {
           )}
 
           {currentView === 'results' && (
-            <ResultsPane
-              data={resultsData}
-              isProcessing={isProcessing}
-              error={processError}
-              onBack={handleBack}
-            />
+            isProcessing ? (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center text-[var(--muted-foreground)]">
+                  <div className="w-6 h-6 mx-auto mb-4 border-2 border-[var(--border)] border-t-[var(--foreground)] rounded-full animate-spin" />
+                  <div className="text-sm">Processing...</div>
+                </div>
+              </div>
+            ) : processError ? (
+              <div className="flex-1 flex flex-col items-center justify-center p-8">
+                <div className="text-center p-8 max-w-[400px]">
+                  <div className="text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-red-600 dark:text-red-400 mb-3">
+                    Error
+                  </div>
+                  <div className="text-sm text-[var(--foreground)] leading-relaxed mb-6">
+                    {processError}
+                  </div>
+                  <button
+                    onClick={handleBack}
+                    className="border border-[var(--border)] bg-transparent py-2.5 px-5 text-sm text-[var(--foreground)] cursor-pointer font-[inherit] flex items-center gap-2 mx-auto hover:bg-[var(--hover-bg)] transition-colors"
+                  >
+                    Back to History
+                  </button>
+                </div>
+              </div>
+            ) : resultsData ? (
+              <ResultsViewWithDetail data={resultsData} onBack={handleBack} />
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-[var(--muted-foreground)]">
+                No results to display
+              </div>
+            )
           )}
         </div>
       </div>
