@@ -1497,64 +1497,16 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
 
                       {/* Measure Words (Classifiers) */}
                       {allClassifiers.length > 0 && (
-                        <div style={{ animation: 'slideUp 0.3s 0.12s ease-out backwards' }}>
-                          <div style={{
-                            fontSize: '0.65rem',
-                            fontWeight: 600,
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.1em',
-                            color: colors.muted,
-                            marginBottom: 10,
-                          }}>
-                            Measure Words
-                          </div>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.625rem' }}>
+                        <div className="animate-[slideUp_0.3s_0.12s_ease-out_backwards]">
+                          <SectionLabel>Measure Words</SectionLabel>
+                          <div className="flex flex-wrap gap-2.5">
                             {allClassifiers.map((classifier, idx) => (
-                              <button
+                              <ClassifierButton
                                 key={idx}
+                                character={classifier.character}
+                                pinyin={classifier.pinyin}
                                 onClick={() => handleCharacterClick(classifier.character)}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'baseline',
-                                  gap: '0.375rem',
-                                  padding: '0.375rem 0.75rem',
-                                  background: 'var(--accent-bg)',
-                                  border: '1px solid var(--accent-border)',
-                                  borderRadius: '0.25rem',
-                                  cursor: 'pointer',
-                                  transition: 'all 0.2s ease',
-                                  fontFamily: 'inherit',
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.background = 'var(--accent-bg)';
-                                  e.currentTarget.style.borderColor = 'var(--primary)';
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.background = 'var(--accent-bg)';
-                                  e.currentTarget.style.borderColor = 'var(--accent-border)';
-                                }}
-                              >
-                                <span
-                                  style={{
-                                    fontSize: '1.125rem',
-                                    lineHeight: 1,
-                                    color: colors.foreground,
-                                    fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
-                                  }}
-                                >
-                                  {classifier.character}
-                                </span>
-                                <span
-                                  style={{
-                                    fontSize: '0.75rem',
-                                    color: colors.muted,
-                                    letterSpacing: '0.02em',
-                                    fontFamily: '"Consolas", "Monaco", monospace',
-                                  }}
-                                >
-                                  {classifier.pinyin}
-                                </span>
-                              </button>
+                              />
                             ))}
                           </div>
                         </div>
@@ -1941,69 +1893,17 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                   if (variants.length === 0) return null;
                   
                   return (
-                    <div style={{ animation: 'slideUp 0.3s 0.06s ease-out backwards' }}>
-                      <div style={{
-                        fontSize: '0.65rem',
-                        fontWeight: 600,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.1em',
-                        color: colors.muted,
-                        marginBottom: 10,
-                      }}>
-                        {variants.length === 1 ? 'Variant' : 'Variants'}
-                      </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.625rem' }}>
+                    <div className="animate-[slideUp_0.3s_0.06s_ease-out_backwards]">
+                      <SectionLabel>{variants.length === 1 ? 'Variant' : 'Variants'}</SectionLabel>
+                      <div className="flex flex-wrap gap-2.5">
                         {variants.map((variant, idx) => (
-                          <button
+                          <VariantButton
                             key={idx}
+                            character={variant.character}
+                            pinyin={variant.pinyin}
+                            variantType={variant.type}
                             onClick={() => handleCharacterClick(variant.character)}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'baseline',
-                              gap: '0.375rem',
-                              padding: '0.375rem 0.75rem',
-                              background: 'var(--accent-bg)',
-                              border: '1px solid var(--accent-border)',
-                              borderRadius: '0.25rem',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s ease',
-                              fontFamily: 'inherit',
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.borderColor = 'var(--primary)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.borderColor = 'var(--accent-border)';
-                            }}
-                          >
-                            <span style={{
-                              fontSize: '1.125rem',
-                              lineHeight: 1,
-                              color: colors.foreground,
-                              fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
-                            }}>
-                              {variant.character}
-                            </span>
-                            {variant.pinyin && (
-                              <span style={{
-                                fontSize: '0.75rem',
-                                color: colors.muted,
-                                letterSpacing: '0.02em',
-                                fontFamily: '"Consolas", "Monaco", monospace',
-                              }}>
-                                {variant.pinyin}
-                              </span>
-                            )}
-                            {variant.type !== 'variant' && (
-                              <span style={{
-                                fontSize: '0.6rem',
-                                color: colors.muted,
-                                opacity: 0.7,
-                              }}>
-                                ({variant.type})
-                              </span>
-                            )}
-                          </button>
+                          />
                         ))}
                       </div>
                     </div>
@@ -2029,62 +1929,16 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                   if (allClassifiers.length === 0) return null;
                   
                   return (
-                    <div style={{ animation: 'slideUp 0.3s 0.08s ease-out backwards' }}>
-                      <div style={{
-                        fontSize: '0.65rem',
-                        fontWeight: 600,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.1em',
-                        color: colors.muted,
-                        marginBottom: 10,
-                      }}>
-                        Measure Words
-                      </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.625rem' }}>
+                    <div className="animate-[slideUp_0.3s_0.08s_ease-out_backwards]">
+                      <SectionLabel>Measure Words</SectionLabel>
+                      <div className="flex flex-wrap gap-2.5">
                         {allClassifiers.map((classifier, idx) => (
-                          <button
+                          <ClassifierButton
                             key={idx}
+                            character={classifier.character}
+                            pinyin={classifier.pinyin}
                             onClick={() => handleCharacterClick(classifier.character)}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'baseline',
-                              gap: '0.375rem',
-                              padding: '0.375rem 0.75rem',
-                              background: 'var(--accent-bg)',
-                              border: '1px solid var(--accent-border)',
-                              borderRadius: '0.25rem',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s ease',
-                              fontFamily: 'inherit',
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.borderColor = 'var(--primary)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.borderColor = 'var(--accent-border)';
-                            }}
-                          >
-                            <span
-                              style={{
-                                fontSize: '1.125rem',
-                                lineHeight: 1,
-                                color: colors.foreground,
-                                fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif',
-                              }}
-                            >
-                              {classifier.character}
-                            </span>
-                            <span
-                              style={{
-                                fontSize: '0.75rem',
-                                color: colors.muted,
-                                letterSpacing: '0.02em',
-                                fontFamily: '"Consolas", "Monaco", monospace',
-                              }}
-                            >
-                              {classifier.pinyin}
-                            </span>
-                          </button>
+                          />
                         ))}
                       </div>
                     </div>
