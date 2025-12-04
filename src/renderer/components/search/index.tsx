@@ -66,7 +66,7 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
       }
 
       try {
-        const results = await window.electronAPI.dictionarySearch(debouncedQuery, 10) as SQLiteDictionaryEntry[];
+        const results = await window.electronAPI.dictionarySearch(debouncedQuery, 10);
         setSqliteResults(results || []);
       } catch (err) {
         console.error('SQLite search error:', err);

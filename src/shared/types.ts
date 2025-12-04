@@ -41,9 +41,9 @@ export interface ElectronAPI {
   windowClose: () => Promise<void>;
 
   // Dictionary search (SQLite + FTS5)
-  dictionarySearch: (query: string, limit?: number) => Promise<unknown[]>;
-  dictionaryGet: (simplified: string) => Promise<unknown | null>;
-  dictionaryGetMany: (simplifiedList: string[]) => Promise<Record<string, unknown>>;
+  dictionarySearch: (query: string, limit?: number) => Promise<SQLiteDictionaryEntry[]>;
+  dictionaryGet: (simplified: string) => Promise<SQLiteDictionaryEntry | null>;
+  dictionaryGetMany: (simplifiedList: string[]) => Promise<Record<string, SQLiteDictionaryEntry>>;
   dictionaryReady: () => Promise<boolean>;
 
   // Clipboard monitor
@@ -160,6 +160,14 @@ export interface CedictEntry {
   traditional: string;
   pinyin: string;
   definitions: string[];
+}
+
+// SQLite dictionary entry (from FTS5 search)
+export interface SQLiteDictionaryEntry {
+  simplified: string;
+  traditional: string;
+  pinyin: string;
+  definitions: string;
 }
 
 // Flashcard types

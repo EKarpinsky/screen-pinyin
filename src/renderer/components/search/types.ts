@@ -21,12 +21,8 @@ export interface HSKEntry {
   type: 'character' | 'word';
 }
 
-export interface SQLiteDictionaryEntry {
-  simplified: string;
-  traditional: string;
-  pinyin: string;
-  definitions: string;
-}
+// Re-export from shared types
+export type { SQLiteDictionaryEntry } from '../../../shared/types';
 
 export interface SearchViewProps {
   historyItems: HistoryItem[];
