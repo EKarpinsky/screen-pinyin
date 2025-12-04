@@ -2,7 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { Check, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@utils';
 import { ScrollArea } from '../ui/scroll-area';
-import { AZURE_REGIONS } from '../settings/types';
+
+const AZURE_REGIONS = [
+  { value: 'eastus', label: 'East US' },
+  { value: 'westus', label: 'West US' },
+  { value: 'westus2', label: 'West US 2' },
+  { value: 'eastasia', label: 'East Asia' },
+  { value: 'southeastasia', label: 'Southeast Asia' },
+  { value: 'northeurope', label: 'North Europe' },
+  { value: 'westeurope', label: 'West Europe' },
+] as const;
 
 export function SettingsPanel() {
   const [apiKey, setApiKey] = useState('');
