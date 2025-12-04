@@ -85,17 +85,15 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
   }, [selectedIndex, totalResults, hasResults, query, searchResults, onTranslateText, onItemClick]);
 
   // Keyboard navigation
-  useKeyboardShortcut('arrowdown', () => {
-    setSelectedIndex((prev) => (prev < totalItemsWithTranslate - 1 ? prev + 1 : prev));
-  }, { enabled: !!query, deps: [query, totalItemsWithTranslate] });
-
-  useKeyboardShortcut('arrowup', () => {
-    setSelectedIndex((prev) => (prev > 0 ? prev - 1 : 0));
-  }, { enabled: !!query, deps: [query] });
-
-  useKeyboardShortcut('enter', (e) => {
-    if (!e.shiftKey) handleEnterPress();
-  }, { enabled: !!query, deps: [query, handleEnterPress] });
+  useKeyboardShortcut(['arrowdown', 'arrowup', 'enter'], (e) => {
+    if (e.key === 'ArrowDown') {
+      setSelectedIndex((prev) => (prev < totalItemsWithTranslate - 1 ? prev + 1 : prev));
+    } else if (e.key === 'ArrowUp') {
+      setSelectedIndex((prev) => (prev > 0 ? prev - 1 : 0));
+    } else if (e.key === 'Enter' && !e.shiftKey) {
+      handleEnterPress();
+    }
+  }, { enabled: !!query, deps: [query, totalItemsWithTranslate, handleEnterPress] });
 
   const handleQueryChange = (newQuery: string) => {
     setQuery(newQuery);

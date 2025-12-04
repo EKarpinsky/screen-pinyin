@@ -79,12 +79,19 @@ export function FlashcardReview({ onComplete, onBack }: FlashcardReviewProps) {
   }, [currentCard, currentIndex, cards.length, onComplete]);
 
   // Keyboard shortcuts
-  useKeyboardShortcut('space', handleFlip, { enabled: !isFlipped, deps: [handleFlip, isFlipped] });
-  useKeyboardShortcut('1', () => handleRating(Rating.Again), { enabled: isFlipped, deps: [handleRating, isFlipped] });
-  useKeyboardShortcut('2', () => handleRating(Rating.Hard), { enabled: isFlipped, deps: [handleRating, isFlipped] });
-  useKeyboardShortcut('3', () => handleRating(Rating.Good), { enabled: isFlipped, deps: [handleRating, isFlipped] });
-  useKeyboardShortcut('4', () => handleRating(Rating.Easy), { enabled: isFlipped, deps: [handleRating, isFlipped] });
-  useKeyboardShortcut('escape', onBack);
+  useKeyboardShortcut(['space', '1', '2', '3', '4', 'escape'], (e) => {
+    if (e.code === 'Space' && !isFlipped) {
+      handleFlip();
+    } else if (isFlipped) {
+      switch (e.key) {
+        case '1': handleRating(Rating.Again); break;
+        case '2': handleRating(Rating.Hard); break;
+        case '3': handleRating(Rating.Good); break;
+        case '4': handleRating(Rating.Easy); break;
+      }
+    }
+    if (e.key === 'Escape') onBack();
+  }, { deps: [isFlipped, handleFlip, handleRating, onBack] });
 
   const formatInterval = (days: number): string => {
     if (days < 1) return '<1d';
