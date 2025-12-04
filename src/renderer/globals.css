@@ -177,3 +177,44 @@ body {
 .history-card:hover .history-delete-btn {
   opacity: 1;
 }
+
+/* Lightbulb toggle animation styles */
+.theme-toggle {
+  --theme-toggle__lightbulb--duration: 500ms;
+}
+
+.theme-toggle__lightbulb__coil {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset var(--theme-toggle__lightbulb--duration) ease-in-out;
+}
+
+.theme-toggle__lightbulb__rays path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset calc(var(--theme-toggle__lightbulb--duration) * 0.6) ease-in-out;
+}
+
+.theme-toggle--toggled .theme-toggle__lightbulb__coil {
+  stroke-dashoffset: 0;
+}
+
+.theme-toggle--toggled .theme-toggle__lightbulb__rays path {
+  stroke-dashoffset: 0;
+}
+
+.theme-toggle--toggled .theme-toggle__lightbulb__rays path:nth-child(1) {
+  transition-delay: calc(var(--theme-toggle__lightbulb--duration) * 0.35);
+}
+.theme-toggle--toggled .theme-toggle__lightbulb__rays path:nth-child(2) {
+  transition-delay: calc(var(--theme-toggle__lightbulb--duration) * 0.4);
+}
+.theme-toggle--toggled .theme-toggle__lightbulb__rays path:nth-child(3) {
+  transition-delay: calc(var(--theme-toggle__lightbulb--duration) * 0.45);
+}
+.theme-toggle--toggled .theme-toggle__lightbulb__rays path:nth-child(4) {
+  transition-delay: calc(var(--theme-toggle__lightbulb--duration) * 0.5);
+}
+.theme-toggle--toggled .theme-toggle__lightbulb__rays path:nth-child(5) {
+  transition-delay: calc(var(--theme-toggle__lightbulb--duration) * 0.55);
+}
