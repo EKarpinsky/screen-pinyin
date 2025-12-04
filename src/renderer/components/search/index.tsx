@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useDebouncedCallback } from 'use-debounce';
 import { ScrollArea } from '../ui/scroll-area';
 import hskDictionary from '../../../data/hsk-dictionary.json';
-import { transformSqliteEntry, debounce } from './utils';
+import { transformSqliteEntry } from './utils';
 
 // Sub-components
 import { SearchInput } from './SearchInput';
@@ -30,23 +31,19 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
   const [sqliteResults, setSqliteResults] = useState<SQLiteDictionaryEntry[]>([]);
 
   // Debounced dictionary search - called directly from event handler
-  const debouncedSearch = useMemo(
-    () =>
-      debounce(async (q: string) => {
-        if (!q.trim()) {
-          setSqliteResults([]);
-          return;
-        }
-        try {
-          const results = await window.electronAPI.dictionarySearch(q, 10);
-          setSqliteResults(results || []);
-        } catch (err) {
-          console.error('SQLite search error:', err);
-          setSqliteResults([]);
-        }
-      }, 150),
-    []
-  );
+  const debouncedSearch = useDebouncedCallback(async (q: string) => {
+    if (!q.trim()) {
+      setSqliteResults([]);
+      return;
+    }
+    try {
+      const results = await window.electronAPI.dictionarySearch(q, 10);
+      setSqliteResults(results || []);
+    } catch (err) {
+      console.error('SQLite search error:', err);
+      setSqliteResults([]);
+    }
+  }, 150);
 
   // Filter results based on query
   const queryLower = query.toLowerCase();
