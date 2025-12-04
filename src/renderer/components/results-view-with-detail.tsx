@@ -1406,20 +1406,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                       {currentWord.pinyin}
                     </p>
                     {hskData[currentWord.word] && (
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        padding: '3px 10px',
-                        backgroundColor: 'var(--accent-bg)',
-                        border: `1px solid ${colors.border}`,
-                        fontSize: 11,
-                        fontWeight: 600,
-                        letterSpacing: '0.05em',
-                        color: colors.primary,
-                        borderRadius: 4,
-                      }}>
-                        HSK {hskData[currentWord.word].level}
-                      </span>
+                      <HSKBadge level={hskData[currentWord.word].level} />
                     )}
                   </div>
                 </div>
@@ -1795,20 +1782,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                       {currentCharacter.pinyin.length > 0 ? currentCharacter.pinyin.join(', ') : '—'}
                     </p>
                     {hskData[currentCharacter.character] && (
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        padding: '3px 10px',
-                        backgroundColor: 'var(--accent-bg)',
-                        border: `1px solid ${colors.border}`,
-                        fontSize: 11,
-                        fontWeight: 600,
-                        letterSpacing: '0.05em',
-                        color: colors.primary,
-                        borderRadius: 4,
-                      }}>
-                        HSK {hskData[currentCharacter.character].level}
-                      </span>
+                      <HSKBadge level={hskData[currentCharacter.character].level} />
                     )}
                   </div>
                 </div>
