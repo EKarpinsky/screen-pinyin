@@ -7,7 +7,7 @@ import { TitleBar } from './TitleBar';
 import { Sidebar } from './Sidebar';
 
 // External components
-import { SearchView } from '../search-view';
+import { SearchView } from '../search';
 import { SettingsPanel } from '../settings-panel';
 import { ResultsViewWithDetail } from '../results-view-with-detail';
 import { TranslationHistory } from '../history';
