@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Copy, Check, X, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Copy, Check, X, ArrowLeft, ChevronLeft, ChevronRight, BookOpen, Plus } from 'lucide-react';
 import {
   useFloating,
   autoUpdate,
@@ -656,6 +656,10 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
   const [currentExampleIndex, setCurrentExampleIndex] = useState(0);
   const [currentWordExampleIndex, setCurrentWordExampleIndex] = useState(0);
   const detailRef = useRef<HTMLDivElement>(null);
+  
+  // Flashcard state
+  const [isInDeck, setIsInDeck] = useState(false);
+  const [addedToDeck, setAddedToDeck] = useState(false);
 
   const hasDetail = selectedDetail !== null;
 
@@ -718,6 +722,70 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
     };
     segmentText();
   }, [data.original]);
+
+  // Get current flashcard data (from selected detail or original data)
+  const getFlashcardData = useCallback(() => {
+    if (selectedDetail) {
+      if (selectedDetail.type === 'word') {
+        const wordData = selectedDetail.data as WordData;
+        return {
+          chinese: wordData.word,
+          pinyin: wordData.pinyin,
+          english: wordData.definitions.slice(0, 3).join('; '),
+        };
+      } else {
+        const charData = selectedDetail.data as CharacterData;
+        return {
+          chinese: charData.character,
+          pinyin: charData.pinyin.join(', '),
+          english: charData.definition,
+        };
+      }
+    }
+    return {
+      chinese: data.original,
+      pinyin: data.pinyin,
+      english: data.translation,
+    };
+  }, [selectedDetail, data]);
+
+  // Check if card exists in flashcard deck
+  useEffect(() => {
+    const checkFlashcard = async () => {
+      try {
+        const flashcardData = getFlashcardData();
+        const exists = await window.electronAPI.flashcardExists(flashcardData.chinese);
+        setIsInDeck(exists);
+        setAddedToDeck(false);
+      } catch (error) {
+        console.error('Failed to check flashcard:', error);
+      }
+    };
+    checkFlashcard();
+  }, [getFlashcardData]);
+
+  // Handler for adding to flashcard deck
+  const handleAddToFlashcards = async () => {
+    console.log('[Flashcard] Button clicked, isInDeck:', isInDeck, 'addedToDeck:', addedToDeck);
+    if (isInDeck || addedToDeck) {
+      console.log('[Flashcard] Already in deck or added, skipping');
+      return;
+    }
+    
+    try {
+      const flashcardData = getFlashcardData();
+      console.log('[Flashcard] Adding:', flashcardData);
+      const result = await window.electronAPI.flashcardAdd(flashcardData);
+      console.log('[Flashcard] Result:', result);
+      
+      if (result.success) {
+        setAddedToDeck(true);
+        setIsInDeck(true);
+      }
+    } catch (error) {
+      console.error('[Flashcard] Failed to add:', error);
+    }
+  };
 
   // In lookup mode, automatically show detail panel for the word/character
   useEffect(() => {
@@ -1087,14 +1155,20 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
               </p>
             </div>
 
-            {/* Copy Button - only show when no detail panel */}
+            {/* Action Buttons - only show when no detail panel */}
             {!hasDetail && (
-              <div style={{ animation: 'slideUp 0.4s 0.3s ease-out backwards' }}>
+              <div style={{ 
+                animation: 'slideUp 0.4s 0.3s ease-out backwards',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 10,
+                maxWidth: 320,
+              }}>
+                {/* Copy Button */}
                 <button
                   onClick={handleCopy}
                   style={{
                     width: '100%',
-                    maxWidth: 320,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -1124,6 +1198,44 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                 >
                   {copied ? <Check size={16} /> : <Copy size={16} />}
                   {copied ? 'Copied!' : 'Copy All'}
+                </button>
+
+                {/* Add to Flashcards Button */}
+                <button
+                  onClick={handleAddToFlashcards}
+                  disabled={isInDeck}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    border: `1px solid ${isInDeck || addedToDeck ? 'var(--border)' : colors.primary}`,
+                    backgroundColor: isInDeck || addedToDeck ? 'var(--muted)' : 'transparent',
+                    padding: '14px 24px',
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    color: isInDeck || addedToDeck ? colors.muted : colors.primary,
+                    cursor: isInDeck ? 'default' : 'pointer',
+                    fontFamily: 'inherit',
+                    transition: 'all 0.2s',
+                    opacity: isInDeck && !addedToDeck ? 0.7 : 1,
+                  }}
+                  onMouseOver={(e) => {
+                    if (!isInDeck && !addedToDeck) {
+                      e.currentTarget.style.backgroundColor = colors.primary;
+                      e.currentTarget.style.color = colors.card;
+                    }
+                  }}
+                  onMouseOut={(e) => {
+                    if (!isInDeck && !addedToDeck) {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                      e.currentTarget.style.color = colors.primary;
+                    }
+                  }}
+                >
+                  {addedToDeck ? <Check size={16} /> : isInDeck ? <BookOpen size={16} /> : <Plus size={16} />}
+                  {addedToDeck ? 'Added to Deck!' : isInDeck ? 'Already in Deck' : 'Add to Flashcards'}
                 </button>
               </div>
             )}
@@ -1226,6 +1338,45 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
             }}>
               {currentWord ? currentWord.word : currentCharacter?.character}
             </div>
+
+            {/* Add to Flashcards Button - in detail view */}
+            <button
+              onClick={handleAddToFlashcards}
+              disabled={isInDeck}
+              style={{
+                marginTop: 16,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                border: `1px solid ${isInDeck || addedToDeck ? colors.border : colors.primary}`,
+                backgroundColor: isInDeck || addedToDeck ? 'var(--muted)' : 'transparent',
+                padding: '10px 20px',
+                fontSize: '0.8rem',
+                fontWeight: 500,
+                color: isInDeck || addedToDeck ? colors.muted : colors.primary,
+                cursor: isInDeck ? 'default' : 'pointer',
+                fontFamily: 'inherit',
+                transition: 'all 0.2s',
+                opacity: isInDeck && !addedToDeck ? 0.7 : 1,
+                borderRadius: 6,
+              }}
+              onMouseOver={(e) => {
+                if (!isInDeck && !addedToDeck) {
+                  e.currentTarget.style.backgroundColor = colors.primary;
+                  e.currentTarget.style.color = colors.card;
+                }
+              }}
+              onMouseOut={(e) => {
+                if (!isInDeck && !addedToDeck) {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = colors.primary;
+                }
+              }}
+            >
+              {addedToDeck ? <Check size={14} /> : isInDeck ? <BookOpen size={14} /> : <Plus size={14} />}
+              {addedToDeck ? 'Added!' : isInDeck ? 'In Deck' : 'Add to Flashcards'}
+            </button>
           </div>
 
           {/* Tab Bar - only show for character detail */}

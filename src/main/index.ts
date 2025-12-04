@@ -1,4 +1,5 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, screen, Tray, Menu, nativeImage } from 'electron';
+import { app, BrowserWindow, globalShortcut, ipcMain, screen, Tray, Menu, nativeImage, Notification } from 'electron';
+import schedule from 'node-schedule';
 import Store from 'electron-store';
 import { captureScreen, cropImage } from './capture';
 import { createWorker, Worker } from 'tesseract.js';
@@ -7,6 +8,31 @@ import nodejieba from 'nodejieba';
 import { initDictionaryDB, searchDictionary, getEntry, getEntries, closeDictionaryDB, isDictionaryReady } from './dictionary-db';
 import { triggerClipboardLookup, ClipboardData } from './clipboard-monitor';
 import { filterDefinitions } from '../shared/definition-utils';
+import {
+  initUserDB,
+  closeUserDB,
+  addFlashcard,
+  getFlashcard,
+  getAllFlashcards,
+  getDueFlashcards,
+  updateFlashcard,
+  deleteFlashcard,
+  flashcardExists,
+  getFlashcardStats,
+  FlashcardData,
+  // Stats and settings
+  getStreakStats,
+  updateStreakAfterReview,
+  incrementMastered,
+  shouldShowExitPrompt,
+  dismissExitPrompt,
+  getAmbientWidgetEnabled,
+  setAmbientWidgetEnabled,
+  getNotificationTimes,
+  setNotificationTimes,
+  getFlashcardByChinese,
+} from './user-db';
+import { createEmptyCard, fsrs, Rating, State, Card, Grade } from 'ts-fsrs';
 
 // Handle Squirrel events for Windows installer
 if (require('electron-squirrel-startup')) {
@@ -29,6 +55,51 @@ let mainWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
 let clipboardPopup: BrowserWindow | null = null;
 let tray: Tray | null = null;
+
+// Exit prompt state
+let isQuitting = false;
+let exitPromptShown = false;
+
+// Scheduled notification jobs
+let notificationJobs: schedule.Job[] = [];
+
+// Set up scheduled notifications based on user settings
+const setupNotificationScheduler = () => {
+  // Cancel existing jobs
+  notificationJobs.forEach(job => job.cancel());
+  notificationJobs = [];
+
+  // Get notification times from settings
+  const times = getNotificationTimes();
+  console.log('Setting up notification scheduler for times:', times);
+
+  times.forEach(hour => {
+    // Schedule job for each hour
+    const job = schedule.scheduleJob({ hour, minute: 0 }, async () => {
+      const dueCards = getDueFlashcards();
+      if (dueCards.length > 0 && Notification.isSupported()) {
+        const notification = new Notification({
+          title: 'Time to Review!',
+          body: `You have ${dueCards.length} flashcard${dueCards.length === 1 ? '' : 's'} ready for review.`,
+          icon: nativeImage.createFromDataURL(
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAB2SURBVHgB7ZJBCsAgDAS3xd/4Bj/iY3yDb/ENvqFVUAoSeuhNZS5LWJIN4jgOIJMPgKqmAQlJANj33qd/sG1r/ykBMzMK8HvvkJmqKpRSmJmZJVBVBBBCgJnPHnLOqKqICBFxAjAzIgJmRkRARI4/eJT+kfAGvvMxePqmrBQAAAAASUVORK5CYII='
+          ),
+          silent: false,
+        });
+
+        notification.on('click', () => {
+          showMainWindow();
+          mainWindow?.webContents.send('navigate-to-flashcards');
+        });
+
+        notification.show();
+      }
+    });
+
+    notificationJobs.push(job);
+    console.log(`Scheduled notification job for ${hour}:00`);
+  });
+};
 
 // Store screenshot buffer for cropping
 let currentScreenshotBuffer: Buffer | null = null;
@@ -82,6 +153,25 @@ const createMainWindow = (): void => {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+
+  // Handle close event for exit prompt
+  mainWindow.on('close', (event) => {
+    // Skip if already quitting or exit prompt not needed
+    if (isQuitting || exitPromptShown) {
+      return;
+    }
+
+    // Check if we should show exit prompt
+    if (shouldShowExitPrompt()) {
+      const dueCards = getDueFlashcards();
+      if (dueCards.length > 0) {
+        // Prevent close and show exit prompt
+        event.preventDefault();
+        exitPromptShown = true;
+        mainWindow?.webContents.send('show-exit-prompt', { dueCount: dueCards.length });
+      }
+    }
   });
 };
 
@@ -723,6 +813,201 @@ const setupIpcHandlers = (): void => {
       showClipboardPopup(data);
     }
   });
+
+  // =====================
+  // Flashcard IPC handlers
+  // =====================
+
+  // Add a new flashcard
+  ipcMain.handle('flashcard-add', (_event, data: { chinese: string; pinyin: string; english: string }) => {
+    const result = addFlashcard(data);
+    return { success: result !== null, flashcard: result };
+  });
+
+  // Get all flashcards
+  ipcMain.handle('flashcard-get-all', () => {
+    return getAllFlashcards();
+  });
+
+  // Get due flashcards
+  ipcMain.handle('flashcard-get-due', () => {
+    return getDueFlashcards();
+  });
+
+  // Get flashcard stats
+  ipcMain.handle('flashcard-get-stats', () => {
+    return getFlashcardStats();
+  });
+
+  // Check if flashcard exists
+  ipcMain.handle('flashcard-exists', (_event, chinese: string) => {
+    return flashcardExists(chinese);
+  });
+
+  // Delete flashcard
+  ipcMain.handle('flashcard-delete', (_event, id: string) => {
+    return { success: deleteFlashcard(id) };
+  });
+
+  // Update flashcard after review (using ts-fsrs)
+  ipcMain.handle('flashcard-review', (_event, id: string, rating: number) => {
+    const flashcard = getFlashcard(id);
+    if (!flashcard) {
+      return { success: false, error: 'Flashcard not found' };
+    }
+
+    try {
+      // Reconstruct the FSRS card from stored data
+      const card: Card = {
+        due: new Date(flashcard.due),
+        stability: flashcard.stability,
+        difficulty: flashcard.difficulty,
+        elapsed_days: flashcard.elapsed_days,
+        scheduled_days: flashcard.scheduled_days,
+        reps: flashcard.reps,
+        lapses: flashcard.lapses,
+        state: flashcard.state as State,
+        last_review: flashcard.last_review ? new Date(flashcard.last_review) : undefined,
+        learning_steps: 0,
+      };
+
+      // Apply FSRS algorithm with specific rating
+      const f = fsrs();
+      const now = new Date();
+      const ratingKey = rating as Grade;
+      const result = f.next(card, now, ratingKey);
+      const newCard = result.card;
+
+      // Update the flashcard in database
+      const success = updateFlashcard(id, {
+        due: newCard.due.toISOString(),
+        stability: newCard.stability,
+        difficulty: newCard.difficulty,
+        elapsed_days: newCard.elapsed_days,
+        scheduled_days: newCard.scheduled_days,
+        reps: newCard.reps,
+        lapses: newCard.lapses,
+        state: newCard.state,
+        last_review: now.toISOString(),
+      });
+
+      return { success, nextDue: newCard.due.toISOString() };
+    } catch (error) {
+      console.error('Error reviewing flashcard:', error);
+      return { success: false, error: (error as Error).message };
+    }
+  });
+
+  // Get scheduling preview for a flashcard (shows intervals for each rating)
+  ipcMain.handle('flashcard-get-intervals', (_event, id: string) => {
+    const flashcard = getFlashcard(id);
+    if (!flashcard) {
+      return null;
+    }
+
+    try {
+      const card: Card = {
+        due: new Date(flashcard.due),
+        stability: flashcard.stability,
+        difficulty: flashcard.difficulty,
+        elapsed_days: flashcard.elapsed_days,
+        scheduled_days: flashcard.scheduled_days,
+        reps: flashcard.reps,
+        lapses: flashcard.lapses,
+        state: flashcard.state as State,
+        last_review: flashcard.last_review ? new Date(flashcard.last_review) : undefined,
+        learning_steps: 0,
+      };
+
+      const f = fsrs();
+      const now = new Date();
+
+      // Get scheduling for each rating
+      const againResult = f.next(card, now, Rating.Again);
+      const hardResult = f.next(card, now, Rating.Hard);
+      const goodResult = f.next(card, now, Rating.Good);
+      const easyResult = f.next(card, now, Rating.Easy);
+
+      // Return intervals for each rating
+      return {
+        again: againResult.card.scheduled_days,
+        hard: hardResult.card.scheduled_days,
+        good: goodResult.card.scheduled_days,
+        easy: easyResult.card.scheduled_days,
+      };
+    } catch (error) {
+      console.error('Error getting intervals:', error);
+      return null;
+    }
+  });
+
+  // Get flashcard by Chinese text (for in-deck indicator)
+  ipcMain.handle('flashcard-get-by-chinese', (_event, chinese: string) => {
+    return getFlashcardByChinese(chinese);
+  });
+
+  // =====================
+  // Stats & Settings IPC handlers
+  // =====================
+
+  // Get streak and mastery stats
+  ipcMain.handle('stats-get', () => {
+    return getStreakStats();
+  });
+
+  // Update streak after completing a review
+  ipcMain.handle('stats-update-streak', () => {
+    return updateStreakAfterReview();
+  });
+
+  // Increment mastered count
+  ipcMain.handle('stats-increment-mastered', () => {
+    return incrementMastered();
+  });
+
+  // Exit prompt handlers
+  ipcMain.handle('exit-prompt-should-show', () => {
+    return shouldShowExitPrompt();
+  });
+
+  ipcMain.handle('exit-prompt-dismiss', () => {
+    dismissExitPrompt();
+    return { success: true };
+  });
+
+  // Ambient widget handlers
+  ipcMain.handle('ambient-widget-get-enabled', () => {
+    return getAmbientWidgetEnabled();
+  });
+
+  ipcMain.handle('ambient-widget-set-enabled', (_event, enabled: boolean) => {
+    setAmbientWidgetEnabled(enabled);
+    return { success: true };
+  });
+
+  // Notification settings handlers
+  ipcMain.handle('notification-get-times', () => {
+    return getNotificationTimes();
+  });
+
+  ipcMain.handle('notification-set-times', (_event, times: number[]) => {
+    setNotificationTimes(times);
+    // Reschedule notifications with new times
+    setupNotificationScheduler();
+    return { success: true };
+  });
+
+  // Exit prompt confirmation handlers
+  ipcMain.handle('confirm-exit', () => {
+    isQuitting = true;
+    exitPromptShown = false;
+    mainWindow?.close();
+  });
+
+  ipcMain.handle('cancel-exit', () => {
+    exitPromptShown = false;
+    // User cancelled, don't close
+  });
 };
 
 // App lifecycle
@@ -739,12 +1024,24 @@ app.whenReady().then(async () => {
     },
   });
 
+  // Clear any stale pendingCapture flag from previous session
+  // (prevents showing "No captured image found" error on startup)
+  store.delete('pendingCapture');
+
   // Initialize dictionary database (SQLite + FTS5)
   try {
     initDictionaryDB();
     console.log('Dictionary database initialized');
   } catch (err) {
     console.error('Failed to initialize dictionary database:', err);
+  }
+
+  // Initialize user database (flashcards, etc.)
+  try {
+    initUserDB();
+    console.log('User database initialized');
+  } catch (err) {
+    console.error('Failed to initialize user database:', err);
   }
 
   // Setup IPC handlers
@@ -767,10 +1064,17 @@ app.whenReady().then(async () => {
 
   // Pre-initialize OCR worker
   await initOCRWorker();
+
+  // Set up scheduled notifications
+  setupNotificationScheduler();
 });
 
 app.on('window-all-closed', () => {
   // Don't quit on window close - keep running in tray
+});
+
+app.on('before-quit', () => {
+  isQuitting = true;
 });
 
 app.on('will-quit', () => {
@@ -778,8 +1082,12 @@ app.on('will-quit', () => {
   if (ocrWorker) {
     ocrWorker.terminate();
   }
-  // Close dictionary database
+  // Cancel scheduled notifications
+  notificationJobs.forEach(job => job.cancel());
+  notificationJobs = [];
+  // Close databases
   closeDictionaryDB();
+  closeUserDB();
 });
 
 app.on('activate', () => {

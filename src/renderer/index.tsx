@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client';
-import { MainAppLayout } from './components/main-app-layout';
+import { MainAppLayout } from './components/layout';
 import { ThemeProvider } from './contexts/theme-context';
 import './globals.css';
 

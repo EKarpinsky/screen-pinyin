@@ -80,6 +80,52 @@ const electronAPI = {
   offLookupText: function(callback) {
     ipcRenderer.removeListener('lookup-text', callback);
   },
+
+  // Flashcard API
+  flashcardAdd: function(data) { return ipcRenderer.invoke('flashcard-add', data); },
+  flashcardGetAll: function() { return ipcRenderer.invoke('flashcard-get-all'); },
+  flashcardGetDue: function() { return ipcRenderer.invoke('flashcard-get-due'); },
+  flashcardGetStats: function() { return ipcRenderer.invoke('flashcard-get-stats'); },
+  flashcardExists: function(chinese) { return ipcRenderer.invoke('flashcard-exists', chinese); },
+  flashcardDelete: function(id) { return ipcRenderer.invoke('flashcard-delete', id); },
+  flashcardReview: function(id, rating) { return ipcRenderer.invoke('flashcard-review', id, rating); },
+  flashcardGetIntervals: function(id) { return ipcRenderer.invoke('flashcard-get-intervals', id); },
+  flashcardGetByChinese: function(chinese) { return ipcRenderer.invoke('flashcard-get-by-chinese', chinese); },
+
+  // Stats API
+  statsGet: function() { return ipcRenderer.invoke('stats-get'); },
+  statsUpdateStreak: function() { return ipcRenderer.invoke('stats-update-streak'); },
+  statsIncrementMastered: function() { return ipcRenderer.invoke('stats-increment-mastered'); },
+
+  // Exit prompt API
+  exitPromptShouldShow: function() { return ipcRenderer.invoke('exit-prompt-should-show'); },
+  exitPromptDismiss: function() { return ipcRenderer.invoke('exit-prompt-dismiss'); },
+
+  // Ambient widget API
+  ambientWidgetGetEnabled: function() { return ipcRenderer.invoke('ambient-widget-get-enabled'); },
+  ambientWidgetSetEnabled: function(enabled) { return ipcRenderer.invoke('ambient-widget-set-enabled', enabled); },
+
+  // Notification settings API
+  notificationGetTimes: function() { return ipcRenderer.invoke('notification-get-times'); },
+  notificationSetTimes: function(times) { return ipcRenderer.invoke('notification-set-times', times); },
+
+  // Event listeners for exit prompt
+  onShowExitPrompt: function(callback) {
+    ipcRenderer.on('show-exit-prompt', callback);
+  },
+  offShowExitPrompt: function(callback) {
+    ipcRenderer.removeListener('show-exit-prompt', callback);
+  },
+  confirmExit: function() { return ipcRenderer.invoke('confirm-exit'); },
+  cancelExit: function() { return ipcRenderer.invoke('cancel-exit'); },
+
+  // Event listener for notification click
+  onNavigateToFlashcards: function(callback) {
+    ipcRenderer.on('navigate-to-flashcards', callback);
+  },
+  offNavigateToFlashcards: function(callback) {
+    ipcRenderer.removeListener('navigate-to-flashcards', callback);
+  },
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);
