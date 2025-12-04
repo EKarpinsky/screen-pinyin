@@ -190,26 +190,8 @@ function CedictContextBridge() {
   return null;
 }
 
-// Colors - use CSS variables for dark mode compatibility
-const colors = {
-  background: 'var(--background)',
-  card: 'var(--card)',
-  foreground: 'var(--foreground)',
-  muted: 'var(--muted-foreground)',
-  border: 'var(--border)',
-  input: 'var(--input)',
-  primary: 'var(--primary)',
-  // POS colors (these work well on both light and dark backgrounds)
-  verb: 'rgba(59, 130, 246, 0.9)',        // Blue
-  noun: 'rgba(217, 119, 6, 0.9)',          // Amber
-  adjective: 'rgba(34, 197, 94, 0.9)',     // Green  
-  adverb: 'rgba(168, 85, 247, 0.9)',       // Purple
-  // Hover backgrounds
-  verbHover: 'rgba(59, 130, 246, 0.12)',
-  nounHover: 'rgba(217, 119, 6, 0.12)',
-  adjectiveHover: 'rgba(34, 197, 94, 0.12)',
-  adverbHover: 'rgba(168, 85, 247, 0.12)',
-};
+// Colors - imported from extracted module (includes wordHighlight fix)
+import { colors } from './results-view/colors';
 
 // Check if a character is Chinese
 function isChineseChar(char: string): boolean {
