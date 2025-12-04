@@ -40,27 +40,15 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isMultiLine, setIsMultiLine] = useState(false);
   const [sqliteResults, setSqliteResults] = useState<SQLiteDictionaryEntry[]>([]);
-  const [useSqlite, setUseSqlite] = useState(false);
 
   // Debounce query for SQLite search (150ms delay)
   const debouncedQuery = useDebounce(query, 150);
 
-  // Check if SQLite dictionary is available
-  useEffect(() => {
-    const checkSqlite = async () => {
-      if (window.electronAPI?.dictionaryReady) {
-        const ready = await window.electronAPI.dictionaryReady();
-        setUseSqlite(ready);
-        if (ready) console.log('Using SQLite FTS5 for dictionary search');
-      }
-    };
-    checkSqlite();
-  }, []);
-
   // Perform SQLite dictionary search when debounced query changes
+  // Main process handles unavailability gracefully (returns [])
   useEffect(() => {
     const performSearch = async () => {
-      if (!useSqlite || !debouncedQuery.trim()) {
+      if (!debouncedQuery.trim()) {
         setSqliteResults([]);
         return;
       }
@@ -75,7 +63,7 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
     };
 
     performSearch();
-  }, [debouncedQuery, useSqlite]);
+  }, [debouncedQuery]);
 
   // Filter results based on query
   const queryLower = query.toLowerCase();
@@ -88,7 +76,7 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
             item.pinyin.toLowerCase().includes(queryLower)
         )
       : [],
-    dictionary: query && useSqlite ? sqliteResults.map(transformSqliteEntry) : [],
+    dictionary: query ? sqliteResults.map(transformSqliteEntry) : [],
   };
 
   const totalResults = searchResults.history.length + searchResults.dictionary.length;
