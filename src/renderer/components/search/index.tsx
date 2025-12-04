@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
+import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
 import { ScrollArea } from '../ui/scroll-area';
 import hskDictionary from '../../../data/hsk-dictionary.json';
 import { transformSqliteEntry } from './utils';
@@ -65,28 +66,7 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
   const hasMultipleLines = query.includes('\n');
   const isLongText = query.length > 30;
 
-  // Keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!query) return;
-
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setSelectedIndex((prev) => (prev < totalItemsWithTranslate - 1 ? prev + 1 : prev));
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : 0));
-      } else if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        handleEnterPress();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [query, totalResults, totalItemsWithTranslate, selectedIndex, hasResults]);
-
-  const handleEnterPress = () => {
+  const handleEnterPress = useCallback(() => {
     if (selectedIndex === totalResults || !hasResults) {
       onTranslateText(query);
       return;
@@ -102,7 +82,20 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
       const entry = searchResults.dictionary[dictIndex];
       onItemClick({ type: 'dictionary', data: entry });
     }
-  };
+  }, [selectedIndex, totalResults, hasResults, query, searchResults, onTranslateText, onItemClick]);
+
+  // Keyboard navigation
+  useKeyboardShortcut('arrowdown', () => {
+    setSelectedIndex((prev) => (prev < totalItemsWithTranslate - 1 ? prev + 1 : prev));
+  }, { enabled: !!query, deps: [query, totalItemsWithTranslate] });
+
+  useKeyboardShortcut('arrowup', () => {
+    setSelectedIndex((prev) => (prev > 0 ? prev - 1 : 0));
+  }, { enabled: !!query, deps: [query] });
+
+  useKeyboardShortcut('enter', (e) => {
+    if (!e.shiftKey) handleEnterPress();
+  }, { enabled: !!query, deps: [query, handleEnterPress] });
 
   const handleQueryChange = (newQuery: string) => {
     setQuery(newQuery);

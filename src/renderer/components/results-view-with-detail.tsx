@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Copy, Check, X, ArrowLeft, ChevronLeft, ChevronRight, BookOpen, Plus } from 'lucide-react';
+import { useKeyboardShortcut } from '../hooks/useKeyboardShortcut';
 import {
   useFloating,
   autoUpdate,
@@ -829,24 +830,26 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
   }, [isLookupMode, data.original, data.pinyin, data.translation]);
 
   // Handle ESC key
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (detailHistory.length > 0) {
-          handleDetailBack();
-        } else if (isLookupMode) {
-          // In lookup mode, ESC goes back to previous view
-          onBack();
-        } else if (hasDetail) {
-          handleCloseDetail();
-        } else {
-          onBack();
-        }
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+  const handleEscapeKey = useCallback(() => {
+    if (detailHistory.length > 0) {
+      // Go back in detail history
+      const prev = detailHistory[detailHistory.length - 1];
+      setDetailHistory(detailHistory.slice(0, -1));
+      setSelectedDetail(prev);
+    } else if (isLookupMode) {
+      // In lookup mode, ESC goes back to previous view
+      onBack();
+    } else if (hasDetail) {
+      // Close detail panel
+      setSelectedDetail(null);
+      setDetailHistory([]);
+      setActiveTab('overview');
+    } else {
+      onBack();
+    }
   }, [hasDetail, detailHistory, onBack, isLookupMode]);
+
+  useKeyboardShortcut('escape', handleEscapeKey, { deps: [handleEscapeKey] });
 
   // Scroll detail panel to top when detail changes
   useEffect(() => {

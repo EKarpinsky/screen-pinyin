@@ -1,6 +1,7 @@
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import { X, ChevronLeft } from "lucide-react"
 import hanziDictionary from "../../data/hanzi-dictionary.json"
+import { useKeyboardShortcut } from "../hooks/useKeyboardShortcut"
 import hskDictionary from "../../data/hsk-dictionary.json"
 import sentencesDictionary from "../../data/sentences-dictionary.json"
 
@@ -218,38 +219,29 @@ export function CharacterDetailPanel({ data, isOpen, onClose }: CharacterDetailP
     }
   }, [currentData])
 
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (history.length > 0) {
-          handleBack()
-        } else {
-          onClose()
-        }
-      }
+  const handleBack = useCallback(() => {
+    if (history.length > 0) {
+      const prev = history[history.length - 1]
+      setHistory(h => h.slice(0, -1))
+      setCurrentData(prev)
     }
+  }, [history])
 
-    if (isOpen) {
-      document.addEventListener("keydown", handleEscape)
-      return () => {
-        document.removeEventListener("keydown", handleEscape)
-      }
+  const handleEscapePress = useCallback(() => {
+    if (history.length > 0) {
+      handleBack()
+    } else {
+      onClose()
     }
-  }, [isOpen, onClose, history])
+  }, [history, handleBack, onClose])
+
+  useKeyboardShortcut('escape', handleEscapePress, { enabled: isOpen, deps: [handleEscapePress] })
 
   const handleCharacterClick = (char: string) => {
     const charData = dictionary[char]
     if (charData && currentData) {
       setHistory(prev => [...prev, currentData])
       setCurrentData(charData)
-    }
-  }
-
-  const handleBack = () => {
-    if (history.length > 0) {
-      const prev = history[history.length - 1]
-      setHistory(h => h.slice(0, -1))
-      setCurrentData(prev)
     }
   }
 

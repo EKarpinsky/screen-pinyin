@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
+import { useKeyboardShortcut } from './hooks/useKeyboardShortcut';
 
 interface ClipboardData {
   chinese: string;
@@ -28,21 +29,13 @@ function ClipboardPopup() {
 
   // No auto-dismiss - stays until user presses Escape or X
 
-  // Handle keyboard dismiss
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        handleDismiss();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
   const handleDismiss = useCallback(() => {
     setVisible(false);
     window.electronAPI?.hideClipboardPopup?.();
   }, []);
+
+  // Handle keyboard dismiss
+  useKeyboardShortcut('escape', handleDismiss);
 
   const handleOpenInApp = useCallback(() => {
     if (data) {

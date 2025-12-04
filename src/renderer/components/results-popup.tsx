@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Copy, Check, X } from "lucide-react"
 import { CharacterDetailPanel, CharacterData } from "./character-detail-panel"
 import hanziDictionary from "../../data/hanzi-dictionary.json"
+import { useKeyboardShortcut } from "../hooks/useKeyboardShortcut"
 
 interface ResultsProps {
   original: string
@@ -35,19 +36,15 @@ export function ResultsPopup({ original, pinyin, translation }: ResultsProps) {
   const [selectedCharacter, setSelectedCharacter] = useState<CharacterData | null>(null)
   const [isPanelOpen, setIsPanelOpen] = useState(false)
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (isPanelOpen) {
-          setIsPanelOpen(false)
-        } else {
-          window.electronAPI.closeResults()
-        }
-      }
+  const handleEscape = useCallback(() => {
+    if (isPanelOpen) {
+      setIsPanelOpen(false)
+    } else {
+      window.electronAPI.closeResults()
     }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
   }, [isPanelOpen])
+
+  useKeyboardShortcut('escape', handleEscape, { deps: [handleEscape] })
 
   const handleCopy = async () => {
     const text = `${original}\n${pinyin}\n${translation}`

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, BookOpen } from 'lucide-react';
 import { cn } from '@utils';
+import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
 import type { FlashcardData, FlashcardIntervals, FlashcardReviewProps } from './types';
 import { Rating } from './types';
 
@@ -78,42 +79,12 @@ export function FlashcardReview({ onComplete, onBack }: FlashcardReviewProps) {
   }, [currentCard, currentIndex, cards.length, onComplete]);
 
   // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      // Ignore if in input field
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
-
-      if (e.code === 'Space' && !isFlipped) {
-        e.preventDefault();
-        handleFlip();
-      } else if (isFlipped) {
-        switch (e.key) {
-          case '1':
-            handleRating(Rating.Again);
-            break;
-          case '2':
-            handleRating(Rating.Hard);
-            break;
-          case '3':
-            handleRating(Rating.Good);
-            break;
-          case '4':
-            handleRating(Rating.Easy);
-            break;
-        }
-      }
-
-      // Escape to go back
-      if (e.key === 'Escape') {
-        onBack();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isFlipped, handleFlip, handleRating, onBack]);
+  useKeyboardShortcut('space', handleFlip, { enabled: !isFlipped, deps: [handleFlip, isFlipped] });
+  useKeyboardShortcut('1', () => handleRating(Rating.Again), { enabled: isFlipped, deps: [handleRating, isFlipped] });
+  useKeyboardShortcut('2', () => handleRating(Rating.Hard), { enabled: isFlipped, deps: [handleRating, isFlipped] });
+  useKeyboardShortcut('3', () => handleRating(Rating.Good), { enabled: isFlipped, deps: [handleRating, isFlipped] });
+  useKeyboardShortcut('4', () => handleRating(Rating.Easy), { enabled: isFlipped, deps: [handleRating, isFlipped] });
+  useKeyboardShortcut('escape', onBack);
 
   const formatInterval = (days: number): string => {
     if (days < 1) return '<1d';

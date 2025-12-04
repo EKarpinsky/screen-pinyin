@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { SelectionError } from './SelectionError';
 import { SelectionRectangle } from './SelectionRectangle';
 import { SelectionInstructions } from './SelectionInstructions';
+import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
 
 export function SelectionOverlay() {
   const [isDragging, setIsDragging] = useState(false);
@@ -43,16 +44,10 @@ export function SelectionOverlay() {
     };
     
     initOverlay();
-
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        window.electronAPI.cancelSelection();
-      }
-    };
-
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
   }, []);
+
+  // Handle Escape key to cancel selection
+  useKeyboardShortcut('escape', () => window.electronAPI.cancelSelection());
 
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
