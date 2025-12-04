@@ -1,5 +1,6 @@
 import React from 'react';
 import { cn } from '@utils';
+import { SearchResultWrapper } from './SearchResultWrapper';
 import type { DictionaryEntry } from './types';
 
 interface DictionaryResultItemProps {
@@ -18,16 +19,7 @@ export function DictionaryResultItem({
   onClick,
 }: DictionaryResultItemProps) {
   return (
-    <div
-      onClick={onClick}
-      className={cn(
-        "cursor-pointer border-b border-[var(--border)]",
-        "py-4 px-7 transition-colors duration-150",
-        "animate-[slideUp_0.3s_ease-out_backwards]",
-        isSelected ? "bg-[var(--hover-bg)]" : "hover:bg-[var(--hover-bg)]"
-      )}
-      style={{ animationDelay: `${index * 0.05}s` }}
-    >
+    <SearchResultWrapper index={index} isSelected={isSelected} onClick={onClick}>
       <div className="mb-1.5 flex items-baseline gap-3">
         <p className={cn(
           "text-[var(--foreground)] text-[1.35rem]",
@@ -48,7 +40,6 @@ export function DictionaryResultItem({
       <p className="text-[var(--muted-foreground)] text-[0.85rem] leading-relaxed m-0 overflow-hidden text-ellipsis whitespace-nowrap">
         {entry.definition}
       </p>
-    </div>
+    </SearchResultWrapper>
   );
 }
-

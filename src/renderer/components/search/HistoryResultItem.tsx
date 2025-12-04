@@ -1,5 +1,6 @@
 import React from 'react';
 import { cn } from '@utils';
+import { SearchResultWrapper } from './SearchResultWrapper';
 import type { HistoryItem } from './types';
 
 interface HistoryResultItemProps {
@@ -16,16 +17,7 @@ export function HistoryResultItem({
   onClick,
 }: HistoryResultItemProps) {
   return (
-    <div
-      onClick={onClick}
-      className={cn(
-        "cursor-pointer border-b border-[var(--border)]",
-        "py-4 px-7 transition-colors duration-150",
-        "animate-[slideUp_0.3s_ease-out_backwards]",
-        isSelected ? "bg-[var(--hover-bg)]" : "hover:bg-[var(--hover-bg)]"
-      )}
-      style={{ animationDelay: `${index * 0.05}s` }}
-    >
+    <SearchResultWrapper index={index} isSelected={isSelected} onClick={onClick}>
       <div className="mb-1.5">
         <p className={cn(
           "text-[var(--foreground)] text-[1.35rem]",
@@ -38,7 +30,6 @@ export function HistoryResultItem({
       <p className="text-[var(--muted-foreground)] text-[0.85rem] leading-relaxed m-0">
         {item.english}
       </p>
-    </div>
+    </SearchResultWrapper>
   );
 }
-
