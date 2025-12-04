@@ -22,67 +22,27 @@ import cedictDictionaryJson from '../../data/cedict-dictionary.json';
 import { TaggedWord } from '../../shared/types';
 import { isVariantEntry, isSurnameEntry, isClassifierEntry, filterDefinitions, extractInlineClassifier, hasInlineClassifier } from '../../shared/definition-utils';
 
-// Types
-interface HSKEntry {
-  level: number;
-  type: 'character' | 'word';
-}
+// Types - imported from extracted module
+import type {
+  HSKEntry,
+  SentenceEntry,
+  CharacterData,
+  CedictEntry,
+  WordData,
+  ViewMode,
+  ResultsData,
+  ResultsViewWithDetailProps,
+  DetailType,
+  DetailState,
+} from './results-view/types';
 
-interface SentenceEntry {
-  s: string;
-  p: string;
-  e: string;
-}
-
-interface CharacterData {
-  character: string;
-  pinyin: string[];
-  definition: string;
-  radical: string;
-  decomposition: string;
-  etymology: {
-    type: string;
-    phonetic?: string;
-    semantic?: string;
-    hint?: string;
-  } | null;
-}
-
-interface CedictEntry {
-  traditional: string;
-  pinyin: string;
-  definitions: string[];
-}
-
-interface WordData {
-  word: string;
-  traditional: string;
-  pinyin: string;
-  definitions: string[];
-  isMultiChar: boolean;
-}
-
-type ViewMode = 'translation' | 'lookup';
-
-interface ResultsData {
-  original: string;
-  pinyin: string;
-  translation: string;
-  mode: ViewMode;
-}
-
-interface ResultsViewWithDetailProps {
-  data: ResultsData;
-  onBack: () => void;
-  onCopyAll?: () => void;
-}
-
-// Type for detail panel: either word or character
-type DetailType = 'word' | 'character';
-interface DetailState {
-  type: DetailType;
-  data: WordData | CharacterData;
-}
+// Sub-components
+import { DefinitionList } from './results-view/DefinitionList';
+import { ClassifierButton } from './results-view/ClassifierButton';
+import { VariantButton } from './results-view/VariantButton';
+import { HSKBadge } from './results-view/HSKBadge';
+import { SectionLabel } from './results-view/SectionLabel';
+import { CharacterChip } from './results-view/CharacterChip';
 
 // Data
 const dictionary = hanziDictionary as Record<string, CharacterData>;
