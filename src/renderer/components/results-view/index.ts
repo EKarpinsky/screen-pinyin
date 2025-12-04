@@ -5,6 +5,14 @@
 export { ClickableChar } from './ClickableChar';
 export { ClickableWord } from './ClickableWord';
 export { TranslationPane } from './TranslationPane';
+export { DetailHeader } from './DetailHeader';
+export { CharacterChip } from './CharacterChip';
+export { ExampleSentence } from './ExampleSentence';
+export { HSKBadge } from './HSKBadge';
+export { SectionLabel } from './SectionLabel';
+export { ClassifierButton } from './ClassifierButton';
+export { VariantButton } from './VariantButton';
+export { DefinitionList } from './DefinitionList';
 
 // Types
 export * from './types';
