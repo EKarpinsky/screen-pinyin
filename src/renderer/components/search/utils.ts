@@ -3,6 +3,28 @@
  */
 
 import { convertNumberedPinyin } from '../../utils/pinyin';
+
+/**
+ * Creates a debounced version of a function.
+ * The debounced function delays invoking until after `wait` ms have elapsed
+ * since the last time it was invoked.
+ */
+export function debounce<T extends (...args: Parameters<T>) => void>(
+  fn: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  return (...args: Parameters<T>) => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    timeoutId = setTimeout(() => {
+      fn(...args);
+      timeoutId = null;
+    }, wait);
+  };
+}
 import { isClassifierEntry, isVariantEntry, isSurnameEntry } from '../../../shared/definition-utils';
 import type { SQLiteDictionaryEntry, DictionaryEntry } from './types';
 

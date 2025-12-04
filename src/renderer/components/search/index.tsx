@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ScrollArea } from '../ui/scroll-area';
 import hskDictionary from '../../../data/hsk-dictionary.json';
-import { transformSqliteEntry } from './utils';
+import { transformSqliteEntry, debounce } from './utils';
 
 // Sub-components
 import { SearchInput } from './SearchInput';
@@ -23,47 +23,30 @@ import type {
 
 const hskData = hskDictionary as Record<string, HSKEntry>;
 
-// Custom debounce hook
-function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedValue(value), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-
-  return debouncedValue;
-}
-
 export function SearchView({ historyItems, onItemClick, onTranslateText }: SearchViewProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isMultiLine, setIsMultiLine] = useState(false);
   const [sqliteResults, setSqliteResults] = useState<SQLiteDictionaryEntry[]>([]);
 
-  // Debounce query for SQLite search (150ms delay)
-  const debouncedQuery = useDebounce(query, 150);
-
-  // Perform SQLite dictionary search when debounced query changes
-  // Main process handles unavailability gracefully (returns [])
-  useEffect(() => {
-    const performSearch = async () => {
-      if (!debouncedQuery.trim()) {
-        setSqliteResults([]);
-        return;
-      }
-
-      try {
-        const results = await window.electronAPI.dictionarySearch(debouncedQuery, 10);
-        setSqliteResults(results || []);
-      } catch (err) {
-        console.error('SQLite search error:', err);
-        setSqliteResults([]);
-      }
-    };
-
-    performSearch();
-  }, [debouncedQuery]);
+  // Debounced dictionary search - called directly from event handler
+  const debouncedSearch = useMemo(
+    () =>
+      debounce(async (q: string) => {
+        if (!q.trim()) {
+          setSqliteResults([]);
+          return;
+        }
+        try {
+          const results = await window.electronAPI.dictionarySearch(q, 10);
+          setSqliteResults(results || []);
+        } catch (err) {
+          console.error('SQLite search error:', err);
+          setSqliteResults([]);
+        }
+      }, 150),
+    []
+  );
 
   // Filter results based on query
   const queryLower = query.toLowerCase();
@@ -127,6 +110,7 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
   const handleQueryChange = (newQuery: string) => {
     setQuery(newQuery);
     setSelectedIndex(0);
+    debouncedSearch(newQuery);
   };
 
   const getHSKLevel = (char: string): number | null => {
