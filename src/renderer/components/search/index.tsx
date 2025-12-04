@@ -67,7 +67,7 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
       }
 
       try {
-        const results = await window.electronAPI.dictionarySearch(debouncedQuery, 10);
+        const results = await window.electronAPI.dictionarySearch(debouncedQuery, 10) as SQLiteDictionaryEntry[];
         setSqliteResults(results || []);
       } catch (err) {
         console.error('SQLite search error:', err);
@@ -159,10 +159,10 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
     }
   };
 
-  // Reset selection when query changes
-  useEffect(() => {
+  const handleQueryChange = (newQuery: string) => {
+    setQuery(newQuery);
     setSelectedIndex(0);
-  }, [query]);
+  };
 
   const getHSKLevel = (char: string): number | null => {
     return hskData[char]?.level || null;
@@ -173,7 +173,7 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
       <SearchInput
         query={query}
         isMultiLine={isMultiLine}
-        onQueryChange={setQuery}
+        onQueryChange={handleQueryChange}
         onMultiLineChange={setIsMultiLine}
       />
 
