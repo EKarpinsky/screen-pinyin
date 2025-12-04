@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ScrollArea } from '../ui/scroll-area';
-import { convertNumberedPinyin } from '../../utils/pinyin';
 import hskDictionary from '../../../data/hsk-dictionary.json';
-import { isVariantEntry, isSurnameEntry, isClassifierEntry } from '../../../shared/definition-utils';
+import { transformSqliteEntry } from './utils';
 
 // Sub-components
 import { SearchInput } from './SearchInput';
@@ -78,28 +77,6 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
     performSearch();
   }, [debouncedQuery, useSqlite]);
 
-  // Convert SQLite results to DictionaryEntry format
-  const sqliteToDictEntry = useCallback((entry: SQLiteDictionaryEntry): DictionaryEntry => {
-    const pinyinArray = entry.pinyin ? entry.pinyin.split(', ').filter(p => p.trim()) : [];
-    const definitions = entry.definitions ? entry.definitions.split('; ') : [];
-    const cleanDefs = definitions
-      .filter(d => !isClassifierEntry(d))
-      .map(d => d.replace(/\s*\(CL:[^)]+\)/g, '').trim())
-      .map(d => convertNumberedPinyin(d))
-      .filter(d => d.length > 0);
-
-    const isUnhelpful = (d: string) => isVariantEntry(d) || isSurnameEntry(d);
-    const meaningDefs = cleanDefs.filter(d => !isUnhelpful(d));
-    const unhelpfulDefs = cleanDefs.filter(d => isUnhelpful(d));
-    const sortedDefs = meaningDefs.length > 0 ? [...meaningDefs, ...unhelpfulDefs] : unhelpfulDefs;
-
-    return {
-      character: entry.simplified,
-      pinyin: pinyinArray,
-      definition: sortedDefs[0] || '',
-    };
-  }, []);
-
   // Filter results based on query
   const queryLower = query.toLowerCase();
   const searchResults = {
@@ -111,7 +88,7 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
             item.pinyin.toLowerCase().includes(queryLower)
         )
       : [],
-    dictionary: query && useSqlite ? sqliteResults.map(sqliteToDictEntry) : [],
+    dictionary: query && useSqlite ? sqliteResults.map(transformSqliteEntry) : [],
   };
 
   const totalResults = searchResults.history.length + searchResults.dictionary.length;
