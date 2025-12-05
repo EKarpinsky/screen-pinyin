@@ -1,5 +1,5 @@
-import { useHotkeys, Options } from 'react-hotkeys-hook';
 import { DependencyList } from 'react';
+import { useHotkeys, Options } from 'react-hotkeys-hook';
 
 type HotkeyCallback = (event: KeyboardEvent) => void;
 

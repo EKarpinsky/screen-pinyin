@@ -1,5 +1,7 @@
-import React from 'react';
+
+
 import { cn } from '@utils';
+
 import { SidebarBadge } from '../flashcards/SidebarBadge';
 
 interface NavButtonProps {
@@ -30,7 +32,7 @@ export function NavButton({
           ? "bg-[var(--sidebar-active)] text-[var(--foreground)]"
           : "bg-transparent text-[var(--muted-foreground)] hover:bg-[var(--hover-bg)]"
       )}
-      // @ts-ignore - webkit property for Electron no-drag
+      // @ts-expect-error - webkit property for Electron no-drag
       style={{ WebkitAppRegion: 'no-drag' }}
     >
       {icon}

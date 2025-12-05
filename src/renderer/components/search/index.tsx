@@ -1,29 +1,31 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
-import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
-import { ScrollArea } from '../ui/scroll-area';
+
 import hskDictionary from '../../../data/hsk-dictionary.json';
-import { transformSqliteEntry } from './utils';
+import { useKeyboardShortcut } from '../../hooks/use-keyboard-shortcut';
+import { ScrollArea } from '../ui/scroll-area';
 
 // Sub-components
-import { SearchInput } from './SearchInput';
-import { SearchEmptyState } from './SearchEmptyState';
-import { SearchNoResults } from './SearchNoResults';
-import { HistoryResultItem } from './HistoryResultItem';
 import { DictionaryResultItem } from './DictionaryResultItem';
-import { TranslateAction } from './TranslateAction';
+import { HistoryResultItem } from './HistoryResultItem';
 import { KeyboardHint } from './KeyboardHint';
-
+import { SearchEmptyState } from './SearchEmptyState';
+import { SearchInput } from './SearchInput';
+import { SearchNoResults } from './SearchNoResults';
+import { TranslateAction } from './TranslateAction';
 // Types
 import type {
-  HistoryItem,
-  DictionaryEntry,
   HSKEntry,
   SQLiteDictionaryEntry,
   SearchViewProps,
 } from './types';
+import { transformSqliteEntry } from './utils';
 
 const hskData = hskDictionary as Record<string, HSKEntry>;
+
+function getHSKLevel(char: string): number | null {
+  return hskData[char]?.level || null;
+}
 
 export function SearchView({ historyItems, onItemClick, onTranslateText }: SearchViewProps) {
   const [query, setQuery] = useState('');
@@ -99,10 +101,6 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
     setQuery(newQuery);
     setSelectedIndex(0);
     debouncedSearch(newQuery);
-  };
-
-  const getHSKLevel = (char: string): number | null => {
-    return hskData[char]?.level || null;
   };
 
   return (

@@ -1,4 +1,5 @@
-import React from 'react';
+
+
 import { colors } from './colors';
 
 interface DefinitionListProps {
@@ -46,4 +47,5 @@ export function DefinitionList({ definitions, maxItems = 6 }: DefinitionListProp
     </div>
   );
 }
+
 

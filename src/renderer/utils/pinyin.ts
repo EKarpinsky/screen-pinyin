@@ -12,14 +12,14 @@ export function convertNumberedPinyin(text: string): string {
   };
 
   // Match patterns like [pinyin1] or [pin1 yin2]
-  return text.replace(/\[([^\]]+)\]/g, (match, pinyin) => {
+  return text.replaceAll(/\[([^\]]+)\]/g, (match, pinyin) => {
     const syllables = pinyin.toLowerCase().split(' ');
     const converted = syllables.map((syllable: string) => {
       const toneMatch = syllable.match(/([a-zü]+)(\d)$/);
       if (!toneMatch) return syllable;
       
-      let [, base, toneStr] = toneMatch;
-      const tone = parseInt(toneStr, 10);
+      const [, base, toneStr] = toneMatch;
+      const tone = Number.parseInt(toneStr, 10);
       if (tone < 1 || tone > 5) return syllable;
       
       // Find vowel to add tone mark

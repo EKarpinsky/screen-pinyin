@@ -1,5 +1,6 @@
-import React from 'react';
 import { ArrowRight } from 'lucide-react';
+
+
 import { cn } from '@utils';
 
 interface TranslateActionProps {

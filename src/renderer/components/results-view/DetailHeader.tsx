@@ -1,5 +1,6 @@
-import React from 'react';
 import { ChevronLeft, X } from 'lucide-react';
+
+
 import { colors } from './colors';
 import type { DetailType } from './types';
 
@@ -50,4 +51,5 @@ export function DetailHeader({
     </div>
   );
 }
+
 

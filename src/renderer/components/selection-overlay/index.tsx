@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
+
+import { useKeyboardShortcut } from '../../hooks/use-keyboard-shortcut';
+
 import { SelectionError } from './SelectionError';
-import { SelectionRectangle } from './SelectionRectangle';
 import { SelectionInstructions } from './SelectionInstructions';
-import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
+import { SelectionRectangle } from './SelectionRectangle';
 
 export function SelectionOverlay() {
   const [isDragging, setIsDragging] = useState(false);

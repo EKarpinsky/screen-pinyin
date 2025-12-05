@@ -1,6 +1,6 @@
-import type { FlashcardData, FlashcardStats, FlashcardIntervals } from '../../../shared/types';
 
-export type { FlashcardData, FlashcardStats, FlashcardIntervals };
+
+
 
 // Card state enum for display purposes
 export enum CardState {
@@ -31,3 +31,6 @@ export interface FlashcardReviewProps {
 
 
 
+
+
+export {type FlashcardData, type FlashcardStats, type FlashcardIntervals} from '../../../shared/types';

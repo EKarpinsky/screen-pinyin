@@ -1,6 +1,8 @@
 import { useContext, useEffect } from 'react';
-import { CedictContext, cedictJsonFallback } from './CedictContext';
+
 import type { CedictEntry } from '../types';
+
+import { CedictContext, cedictJsonFallback } from './CedictContext';
 
 // Legacy global accessor for components that haven't been updated yet
 let globalCedictGetter: ((key: string) => CedictEntry | undefined) | null = null;
@@ -34,4 +36,5 @@ export function CedictContextBridge() {
   
   return null;
 }
+
 

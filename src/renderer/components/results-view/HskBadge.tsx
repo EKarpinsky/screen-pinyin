@@ -1,4 +1,5 @@
-import React from 'react';
+
+
 import { colors } from './colors';
 
 interface HSKBadgeProps {
@@ -17,4 +18,5 @@ export function HSKBadge({ level }: HSKBadgeProps) {
     </span>
   );
 }
+
 

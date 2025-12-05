@@ -1,5 +1,6 @@
-import React from 'react';
 import { X, Minus, Square } from 'lucide-react';
+
+
 import { cn } from '@utils';
 
 interface WindowControlsProps {
@@ -15,7 +16,7 @@ export function WindowControls({ onMinimize, onMaximize, onClose }: WindowContro
         "flex h-full",
         "[--webkit-app-region:no-drag]"
       )}
-      // @ts-ignore - webkit property for Electron no-drag
+      // @ts-expect-error - webkit property for Electron no-drag
       style={{ WebkitAppRegion: 'no-drag' }}
     >
       <button

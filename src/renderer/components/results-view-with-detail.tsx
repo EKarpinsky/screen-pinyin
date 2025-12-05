@@ -1,6 +1,3 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Copy, Check, X, ArrowLeft, ChevronLeft, ChevronRight, BookOpen, Plus } from 'lucide-react';
-import { useKeyboardShortcut } from '../hooks/useKeyboardShortcut';
 import {
   useFloating,
   autoUpdate,
@@ -13,16 +10,24 @@ import {
   useInteractions,
   FloatingPortal,
 } from '@floating-ui/react';
-import { ScrollArea } from './ui/scroll-area';
-import { convertNumberedPinyin } from '../utils/pinyin';
+import { Copy, Check, X, ArrowLeft, ChevronLeft, ChevronRight, BookOpen, Plus } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+
+
+import cedictDictionaryJson from '../../data/cedict-dictionary.json';
 import hanziDictionary from '../../data/hanzi-dictionary.json';
 import hskDictionary from '../../data/hsk-dictionary.json';
 import sentencesDictionary from '../../data/sentences-dictionary.json';
-import cedictDictionaryJson from '../../data/cedict-dictionary.json';
-import { TaggedWord } from '../../shared/types';
 import { isVariantEntry, isSurnameEntry, isClassifierEntry, filterDefinitions, extractInlineClassifier, hasInlineClassifier } from '../../shared/definition-utils';
+import { TaggedWord } from '../../shared/types';
+import { useKeyboardShortcut } from '../hooks/useKeyboardShortcut';
+import { convertNumberedPinyin } from '../utils/pinyin';
 
 // Types - imported from extracted module
+import { CharacterChip } from './results-view/CharacterChip';
+import { ClassifierButton } from './results-view/ClassifierButton';
+import { DefinitionList } from './results-view/DefinitionList';
+import { HSKBadge } from './results-view/HSKBadge';
 import type {
   HSKEntry,
   SentenceEntry,
@@ -37,12 +42,8 @@ import type {
 } from './results-view/types';
 
 // Sub-components
-import { DefinitionList } from './results-view/DefinitionList';
-import { ClassifierButton } from './results-view/ClassifierButton';
 import { VariantButton } from './results-view/VariantButton';
-import { HSKBadge } from './results-view/HSKBadge';
 import { SectionLabel } from './results-view/SectionLabel';
-import { CharacterChip } from './results-view/CharacterChip';
 
 // Data
 const dictionary = hanziDictionary as Record<string, CharacterData>;
@@ -104,7 +105,7 @@ function CedictProvider({ children, keysToLoad }: { children: React.ReactNode; k
             setLoadedFromSqlite(true);
           }
         }
-      } catch (err) {
+      } catch {
         // SQLite not available, will use JSON fallback
       }
     };
@@ -152,6 +153,7 @@ function CedictContextBridge() {
 
 // Colors - imported from extracted module (includes wordHighlight fix)
 import { colors } from './results-view/colors';
+import { ScrollArea } from './ui/scroll-area';
 
 // Check if a character is Chinese
 function isChineseChar(char: string): boolean {
@@ -238,7 +240,7 @@ function parseVariant(variantString: string): { character: string; pinyin: strin
 
 // Check if string contains only Chinese characters
 function isAllChinese(str: string): boolean {
-  return str.split('').every(char => isChineseChar(char) || /\s/.test(char));
+  return [...str].every(char => isChineseChar(char) || /\s/.test(char));
 }
 
 // Part of speech type
@@ -250,32 +252,42 @@ type POS = 'verb' | 'noun' | 'adjective' | 'adverb' | 'unknown';
 function mapJiebaTagToPOS(tag: string): POS {
   const firstChar = tag.charAt(0).toLowerCase();
   switch (firstChar) {
-    case 'n':  // n, nr, ns, nt, nz, etc. (nouns)
+    case 'n': {  // n, nr, ns, nt, nz, etc. (nouns)
       return 'noun';
-    case 'v':  // v, vd, vn, etc. (verbs)
+    }
+    case 'v': {  // v, vd, vn, etc. (verbs)
       return 'verb';
-    case 'a':  // a, ad, an, etc. (adjectives)
+    }
+    case 'a': {  // a, ad, an, etc. (adjectives)
       return 'adjective';
-    case 'd':  // d (adverbs)
+    }
+    case 'd': {  // d (adverbs)
       return 'adverb';
-    default:
+    }
+    default: {
       return 'unknown';
+    }
   }
 }
 
 // Get color for POS
 function getPOSColor(pos: POS): { rest: string; hover: string } {
   switch (pos) {
-    case 'verb':
+    case 'verb': {
       return { rest: colors.verb, hover: colors.verbHover };
-    case 'noun':
+    }
+    case 'noun': {
       return { rest: colors.noun, hover: colors.nounHover };
-    case 'adjective':
+    }
+    case 'adjective': {
       return { rest: colors.adjective, hover: colors.adjectiveHover };
-    case 'adverb':
+    }
+    case 'adverb': {
       return { rest: colors.adverb, hover: colors.adverbHover };
-    default:
+    }
+    default: {
       return { rest: 'var(--foreground)', hover: 'var(--hover-bg)' };
+    }
   }
 }
 
@@ -325,10 +337,10 @@ function ClickableChar({
 
   // Get definition - Priority: CC-CEDICT (filtered) → CC-CEDICT (any) → makemeahanzi fallback
   const allDefs = cedictData[char]?.definitions || [];
-  const filteredDefs = allDefs.filter((d: string) => 
+  const filteredDef = allDefs.find((d: string) => 
     !d.startsWith('CL:') && !isVariantEntry(d) && !isSurnameEntry(d)
   );
-  const cedictDef = filteredDefs[0] || allDefs.filter((d: string) => !d.startsWith('CL:'))[0];
+  const cedictDef = filteredDef || allDefs.find((d: string) => !d.startsWith('CL:'));
   const definition = convertNumberedPinyin(cedictDef || charData?.definition || '—');
   const pinyin = charData?.pinyin?.length > 0 ? charData.pinyin.join(', ') : '—';
   const hskLevel = hskData[char]?.level;
@@ -388,7 +400,7 @@ function ClickableChar({
               lineHeight: 1.4,
               color: 'white',
             }}>
-              {definition.length > 60 ? definition.substring(0, 60) + '...' : definition}
+              {definition.length > 60 ? definition.slice(0, 60) + '...' : definition}
             </div>
             {hskLevel && (
               <span style={{
@@ -428,6 +440,24 @@ function ClickableWord({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   
+  // Floating UI setup - must be called before any early returns
+  const { refs, floatingStyles, context } = useFloating({
+    open: isOpen,
+    onOpenChange: setIsOpen,
+    placement: 'top',
+    middleware: [
+      offset(8),
+      flip({ fallbackAxisSideDirection: 'start', padding: 8 }),
+      shift({ padding: 8 }),
+    ],
+    whileElementsMounted: autoUpdate,
+  });
+
+  const hover = useHover(context, { move: false, delay: { open: 200, close: 0 } });
+  const focus = useFocus(context);
+  const dismiss = useDismiss(context);
+  const { getReferenceProps, getFloatingProps } = useInteractions([hover, focus, dismiss]);
+
   // Guard against undefined/empty word
   if (!word) {
     return null;
@@ -459,33 +489,15 @@ function ClickableWord({
   } else if (charData) {
     // Priority: CC-CEDICT (filtered) → CC-CEDICT (any) → makemeahanzi fallback
     const allDefs = cedictData[word]?.definitions || [];
-    const filteredDefs = allDefs.filter((d: string) => 
+    const filteredDef = allDefs.find((d: string) => 
       !d.startsWith('CL:') && !isVariantEntry(d) && !isSurnameEntry(d)
     );
-    const cedictDef = filteredDefs[0] || allDefs.filter((d: string) => !d.startsWith('CL:'))[0];
+    const cedictDef = filteredDef || allDefs.find((d: string) => !d.startsWith('CL:'));
     definition = convertNumberedPinyin(cedictDef || charData.definition || '');
     pinyin = charData.pinyin?.join(', ') || '';
   }
   
   const hasTooltipContent = definition || pinyin || hskLevel;
-
-  // Floating UI setup
-  const { refs, floatingStyles, context } = useFloating({
-    open: isOpen,
-    onOpenChange: setIsOpen,
-    placement: 'top',
-    middleware: [
-      offset(8),
-      flip({ fallbackAxisSideDirection: 'start', padding: 8 }),
-      shift({ padding: 8 }),
-    ],
-    whileElementsMounted: autoUpdate,
-  });
-
-  const hover = useHover(context, { move: false, delay: { open: 200, close: 0 } });
-  const focus = useFocus(context);
-  const dismiss = useDismiss(context);
-  const { getReferenceProps, getFloatingProps } = useInteractions([hover, focus, dismiss]);
 
   // For punctuation and non-Chinese, just render as-is
   if (!isChinese) {
@@ -611,25 +623,24 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
 
   // Collect all unique characters/words that need dictionary lookup
   const keysToLoad = React.useMemo(() => {
-    const keys = new Set<string>();
-    // Add original text and its characters
-    keys.add(data.original);
+    const keys = new Set<string>([data.original]);
+    // Add original text and its characters
     for (const char of data.original) {
-      if (/[\u4e00-\u9fff]/.test(char)) {
+      if (/[\u4E00-\u9FFF]/.test(char)) {
         keys.add(char);
       }
     }
     // Add segmented words
-    segmentedWords.forEach(({ word }) => {
-      if (word && /[\u4e00-\u9fff]/.test(word)) {
+    for (const { word } of segmentedWords) {
+      if (word && /[\u4E00-\u9FFF]/.test(word)) {
         keys.add(word);
         for (const char of word) {
-          if (/[\u4e00-\u9fff]/.test(char)) {
+          if (/[\u4E00-\u9FFF]/.test(char)) {
             keys.add(char);
           }
         }
       }
-    });
+    }
     // Add selected detail character/word
     if (selectedDetail) {
       if (selectedDetail.type === 'word') {
@@ -643,7 +654,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
         keys.add(charData.character);
       }
     }
-    return Array.from(keys);
+    return [...keys];
   }, [data.original, segmentedWords, selectedDetail]);
 
   // Segment text on mount or data change
@@ -655,12 +666,12 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
           setSegmentedWords(result.segments);
         } else {
           // Fallback: split by character with unknown tag
-          setSegmentedWords(data.original.split('').map(char => ({ word: char, tag: 'x' })));
+          setSegmentedWords([...data.original].map(char => ({ word: char, tag: 'x' })));
         }
       } catch (error) {
         console.error('Segmentation failed:', error);
         // Fallback: split by character with unknown tag
-        setSegmentedWords(data.original.split('').map(char => ({ word: char, tag: 'x' })));
+        setSegmentedWords([...data.original].map(char => ({ word: char, tag: 'x' })));
       }
     };
     segmentText();
@@ -775,7 +786,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
   const handleEscapeKey = useCallback(() => {
     if (detailHistory.length > 0) {
       // Go back in detail history
-      const prev = detailHistory[detailHistory.length - 1];
+      const prev = detailHistory.at(-1);
       setDetailHistory(detailHistory.slice(0, -1));
       setSelectedDetail(prev);
     } else if (isLookupMode) {
@@ -871,7 +882,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
 
   const handleDetailBack = () => {
     if (detailHistory.length > 0) {
-      const prev = detailHistory[detailHistory.length - 1];
+      const prev = detailHistory.at(-1);
       setDetailHistory(detailHistory.slice(0, -1));
       setSelectedDetail(prev);
       setActiveTab('overview');
@@ -1179,8 +1190,8 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                     }
                   }}
                 >
-                  {addedToDeck ? <Check size={16} /> : isInDeck ? <BookOpen size={16} /> : <Plus size={16} />}
-                  {addedToDeck ? 'Added to Deck!' : isInDeck ? 'Already in Deck' : 'Add to Flashcards'}
+                  {addedToDeck ? <Check size={16} /> : (isInDeck ? <BookOpen size={16} /> : <Plus size={16} />)}
+                  {addedToDeck ? 'Added to Deck!' : (isInDeck ? 'Already in Deck' : 'Add to Flashcards')}
                 </button>
               </div>
             )}
@@ -1319,8 +1330,8 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                 }
               }}
             >
-              {addedToDeck ? <Check size={14} /> : isInDeck ? <BookOpen size={14} /> : <Plus size={14} />}
-              {addedToDeck ? 'Added!' : isInDeck ? 'In Deck' : 'Add to Flashcards'}
+              {addedToDeck ? <Check size={14} /> : (isInDeck ? <BookOpen size={14} /> : <Plus size={14} />)}
+              {addedToDeck ? 'Added!' : (isInDeck ? 'In Deck' : 'Add to Flashcards')}
             </button>
           </div>
 
@@ -1528,17 +1539,17 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                     </span>
                   </div>
                   <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                    {currentWord.word.split('').map((char, i) => {
+                    {[...currentWord.word].map((char, i) => {
                       const charData = dictionary[char];
                       // Get short definition - Priority: CC-CEDICT (filtered) → CC-CEDICT (any) → makemeahanzi
                       const allDefs = cedictData[char]?.definitions || [];
-                      const filteredDefs = allDefs.filter((d: string) => 
+                      const filteredDef = allDefs.find((d: string) => 
                         !d.startsWith('CL:') && !isVariantEntry(d) && !isSurnameEntry(d)
                       );
-                      const cedictDef = filteredDefs[0] || allDefs.filter((d: string) => !d.startsWith('CL:'))[0];
+                      const cedictDef = filteredDef || allDefs.find((d: string) => !d.startsWith('CL:'));
                       const fullDef = convertNumberedPinyin(cedictDef || charData?.definition || '');
                       const shortDef = fullDef 
-                        ? fullDef.split(/[,;]/)[0].trim().substring(0, 25) + (fullDef.length > 25 ? '...' : '')
+                        ? fullDef.split(/[,;]/)[0].trim().slice(0, 25) + (fullDef.length > 25 ? '...' : '')
                         : '—';
                       return (
                         <button
@@ -1632,7 +1643,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                       marginBottom: '1rem',
                       letterSpacing: '0.03em',
                     }}>
-                      {wordSentences[currentWordExampleIndex].s.split('').map((char, charIndex) => {
+                      {[...wordSentences[currentWordExampleIndex].s].map((char, charIndex) => {
                         // Check if this char is part of the word
                         const sentenceText = wordSentences[currentWordExampleIndex].s;
                         const wordStart = sentenceText.indexOf(currentWord.word);
@@ -1950,7 +1961,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                       marginBottom: '1rem',
                       letterSpacing: '0.03em',
                     }}>
-                      {characterSentences[currentExampleIndex].s.split('').map((char, charIndex) => {
+                      {[...characterSentences[currentExampleIndex].s].map((char, charIndex) => {
                         const isTarget = char === currentCharacter.character;
                         const isChinese = isChineseChar(char);
 
@@ -2119,7 +2130,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                     alignItems: 'center',
                   }}>
                     {currentCharacter.decomposition ? (
-                      currentCharacter.decomposition.split('').map((char, i) => {
+                      [...currentCharacter.decomposition].map((char, i) => {
                         if (isChineseChar(char)) {
                           return (
                             <ClickableChar

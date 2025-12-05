@@ -26,3 +26,4 @@ export const colors = {
   adverbHover: 'rgba(168, 85, 247, 0.12)',
 };
 
+

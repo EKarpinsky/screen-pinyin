@@ -8,7 +8,7 @@ export { TranslationPane } from './TranslationPane';
 export { DetailHeader } from './DetailHeader';
 export { CharacterChip } from './CharacterChip';
 export { ExampleSentence } from './ExampleSentence';
-export { HSKBadge } from './HSKBadge';
+export { HSKBadge } from './HskBadge';
 export { SectionLabel } from './SectionLabel';
 export { ClassifierButton } from './ClassifierButton';
 export { VariantButton } from './VariantButton';

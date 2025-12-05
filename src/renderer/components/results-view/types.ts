@@ -71,3 +71,4 @@ export interface CedictContextType {
 // Part of speech type
 export type POS = 'verb' | 'noun' | 'adjective' | 'adverb' | 'unknown';
 
+

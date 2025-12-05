@@ -1,9 +1,10 @@
-import { useEffect, useState, useRef, useCallback } from "react"
 import { X, ChevronLeft } from "lucide-react"
+import { useEffect, useState, useRef, useCallback } from "react"
+
 import hanziDictionary from "../../data/hanzi-dictionary.json"
-import { useKeyboardShortcut } from "../hooks/useKeyboardShortcut"
 import hskDictionary from "../../data/hsk-dictionary.json"
 import sentencesDictionary from "../../data/sentences-dictionary.json"
+import { useKeyboardShortcut } from "../hooks/use-keyboard-shortcut"
 
 // Sentences dictionary type
 interface SentenceEntry {
@@ -60,8 +61,8 @@ function isClickableChar(char: string): boolean {
 // Extract Chinese characters from a decomposition string (filter out structure markers like ⿰⿱ etc)
 function extractChineseChars(str: string): string[] {
   if (!str) return []
-  return str.split('').filter(char => {
-    const code = char.charCodeAt(0)
+  return [...str].filter(char => {
+    const code = char.codePointAt(0) ?? 0
     // CJK characters but not Ideographic Description Characters (⿰⿱⿲ etc are U+2FF0-U+2FFF)
     return (code >= 0x4E00 && code <= 0x9FFF) || 
            (code >= 0x3400 && code <= 0x4DBF) ||
@@ -126,7 +127,8 @@ function ClickableChar({
       onMouseEnter={() => setShowInfo(true)}
       onMouseLeave={() => setShowInfo(false)}
     >
-      <span
+      <button
+        type="button"
         onClick={onClick}
         style={{
           fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Source Han Sans SC", sans-serif',
@@ -135,12 +137,18 @@ function ClickableChar({
           cursor: 'pointer',
           transition: 'color 0.15s',
           display: 'inline-block',
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          margin: 0,
         }}
         onMouseOver={(e) => e.currentTarget.style.color = colors.primary}
         onMouseOut={(e) => e.currentTarget.style.color = colors.foreground}
+        onFocus={(e) => e.currentTarget.style.color = colors.primary}
+        onBlur={(e) => e.currentTarget.style.color = colors.foreground}
       >
         {char}
-      </span>
+      </button>
       
       {/* Tooltip with character info */}
       {showTooltip && showInfo && charData && (
@@ -180,7 +188,7 @@ function ClickableChar({
             whiteSpace: 'normal',
             lineHeight: 1.3,
           }}>
-            {charData.definition ? charData.definition.substring(0, 60) + (charData.definition.length > 60 ? '...' : '') : '—'}
+            {charData.definition ? charData.definition.slice(0, 60) + (charData.definition.length > 60 ? '...' : '') : '—'}
           </div>
           <div style={{
             position: 'absolute',
@@ -221,7 +229,7 @@ export function CharacterDetailPanel({ data, isOpen, onClose }: CharacterDetailP
 
   const handleBack = useCallback(() => {
     if (history.length > 0) {
-      const prev = history[history.length - 1]
+      const prev = history.at(-1)
       setHistory(h => h.slice(0, -1))
       setCurrentData(prev)
     }
@@ -292,6 +300,8 @@ export function CharacterDetailPanel({ data, isOpen, onClose }: CharacterDetailP
               }}
               onMouseOver={(e) => e.currentTarget.style.color = colors.foreground}
               onMouseOut={(e) => e.currentTarget.style.color = colors.muted}
+              onFocus={(e) => e.currentTarget.style.color = colors.foreground}
+              onBlur={(e) => e.currentTarget.style.color = colors.muted}
             >
               <ChevronLeft size={18} />
             </button>
@@ -457,9 +467,9 @@ export function CharacterDetailPanel({ data, isOpen, onClose }: CharacterDetailP
               alignItems: 'center',
             }}>
               {currentData.decomposition ? (
-                currentData.decomposition.split('').map((char, i) => {
+                [...currentData.decomposition].map((char, i) => {
                   // Check if it's a Chinese character
-                  const code = char.charCodeAt(0)
+                  const code = char.codePointAt(0) ?? 0
                   const isChinese = (code >= 0x4E00 && code <= 0x9FFF) || 
                                    (code >= 0x3400 && code <= 0x4DBF) ||
                                    (code >= 0x2E80 && code <= 0x2EFF) ||

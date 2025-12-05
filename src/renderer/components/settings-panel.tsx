@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
 import { Check, Eye, EyeOff } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+
 import { cn } from '@utils';
+
 import { ScrollArea } from './ui/scroll-area';
 
 const AZURE_REGIONS = [

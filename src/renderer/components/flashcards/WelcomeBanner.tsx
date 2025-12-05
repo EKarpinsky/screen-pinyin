@@ -1,22 +1,22 @@
-import React, { useState } from 'react';
 import { BookOpen, X } from 'lucide-react';
+import { useState } from 'react';
 
 interface WelcomeBannerProps {
   dueCount: number;
   onStartReview: () => void;
 }
 
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning!';
+  if (hour < 18) return 'Good afternoon!';
+  return 'Good evening!';
+}
+
 export function WelcomeBanner({ dueCount, onStartReview }: WelcomeBannerProps) {
   const [isDismissed, setIsDismissed] = useState(false);
 
   if (isDismissed || dueCount === 0) return null;
-
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning!';
-    if (hour < 18) return 'Good afternoon!';
-    return 'Good evening!';
-  };
 
   return (
     <div 
@@ -92,6 +92,7 @@ export function WelcomeBanner({ dueCount, onStartReview }: WelcomeBannerProps) {
     </div>
   );
 }
+
 
 
 

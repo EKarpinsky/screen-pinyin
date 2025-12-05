@@ -1,21 +1,54 @@
-import React, { useState, useEffect } from 'react';
 import { BookOpen, Calendar, Trash2, Play } from 'lucide-react';
-import { ScrollArea } from '../ui/scroll-area';
-import { cn } from '@utils';
-import type { FlashcardData, FlashcardStats, FlashcardDeckProps, CardState } from './types';
-import type { StreakStats as StreakStatsType } from '../../../shared/types';
-import { WelcomeBanner } from './WelcomeBanner';
-import { StreakStats } from './StreakStats';
+import { useState, useEffect } from 'react';
 
-// Colors using CSS variables for dark mode compatibility
-const colors = {
-  background: 'var(--background)',
-  card: 'var(--card)',
-  foreground: 'var(--foreground)',
-  muted: 'var(--muted-foreground)',
-  border: 'var(--border)',
-  primary: 'var(--primary)',
-};
+import { cn } from '@utils';
+
+import type { StreakStats as StreakStatsType } from '../../../shared/types';
+import { ScrollArea } from '../ui/scroll-area';
+
+import { StreakStats } from './StreakStats';
+import type { FlashcardData, FlashcardStats, FlashcardDeckProps } from './types';
+import { WelcomeBanner } from './WelcomeBanner';
+
+function getStateBadgeColor(state: number): string {
+  switch (state) {
+    case 0: { // New
+      return 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800';
+    }
+    case 1: // Learning
+    case 3: { // Relearning
+      return 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800';
+    }
+    case 2: { // Review
+      return 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800';
+    }
+    default: {
+      return 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700';
+    }
+  }
+}
+
+function getStateLabel(state: number): string {
+  switch (state) {
+    case 0: { return 'New'; }
+    case 1: { return 'Learning'; }
+    case 2: { return 'Review'; }
+    case 3: { return 'Relearning'; }
+    default: { return 'Unknown'; }
+  }
+}
+
+function getDueDateText(dueDate: string): string {
+  const now = new Date();
+  const due = new Date(dueDate);
+  const diff = due.getTime() - now.getTime();
+  const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+
+  if (days < 0) return 'Overdue';
+  if (days === 0) return 'Due today';
+  if (days === 1) return 'Due tomorrow';
+  return `Due in ${days}d`;
+}
 
 export function FlashcardDeck({ onStartReview }: FlashcardDeckProps) {
   const [flashcards, setFlashcards] = useState<FlashcardData[]>([]);
@@ -55,42 +88,6 @@ export function FlashcardDeck({ onStartReview }: FlashcardDeckProps) {
         due: Math.max(0, prev.due - 1),
       }));
     }
-  };
-
-  const getStateBadgeColor = (state: number) => {
-    switch (state) {
-      case 0: // New
-        return 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800';
-      case 1: // Learning
-      case 3: // Relearning
-        return 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800';
-      case 2: // Review
-        return 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800';
-      default:
-        return 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700';
-    }
-  };
-
-  const getStateLabel = (state: number) => {
-    switch (state) {
-      case 0: return 'New';
-      case 1: return 'Learning';
-      case 2: return 'Review';
-      case 3: return 'Relearning';
-      default: return 'Unknown';
-    }
-  };
-
-  const getDueDateText = (dueDate: string) => {
-    const now = new Date();
-    const due = new Date(dueDate);
-    const diff = due.getTime() - now.getTime();
-    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-
-    if (days < 0) return 'Overdue';
-    if (days === 0) return 'Due today';
-    if (days === 1) return 'Due tomorrow';
-    return `Due in ${days}d`;
   };
 
   if (loading) {

@@ -1,5 +1,6 @@
-import React, { useRef, useEffect } from 'react';
 import { Search } from 'lucide-react';
+import React, { useRef, useEffect } from 'react';
+
 import { cn } from '@utils';
 
 interface SearchInputProps {
@@ -65,7 +66,15 @@ export function SearchInput({
           size={20}
           className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
         />
-        {!isMultiLine ? (
+        {isMultiLine ? (
+          <textarea
+            ref={textareaRef}
+            value={query}
+            onChange={(e) => onQueryChange(e.target.value)}
+            placeholder="Paste Chinese text to translate..."
+            className={cn(inputClassName, "resize-none min-h-12 max-h-[200px]")}
+          />
+        ) : (
           <input
             ref={inputRef}
             type="text"
@@ -74,14 +83,6 @@ export function SearchInput({
             onPaste={handlePaste}
             placeholder="Search or paste Chinese text to translate..."
             className={inputClassName}
-          />
-        ) : (
-          <textarea
-            ref={textareaRef}
-            value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
-            placeholder="Paste Chinese text to translate..."
-            className={cn(inputClassName, "resize-none min-h-12 max-h-[200px]")}
           />
         )}
       </div>

@@ -1,4 +1,5 @@
-import React from 'react';
+
+
 import { colors } from './colors';
 
 interface ClassifierButtonProps {
@@ -28,4 +29,5 @@ export function ClassifierButton({ character, pinyin, onClick }: ClassifierButto
     </button>
   );
 }
+
 

@@ -1,5 +1,5 @@
-import React from 'react';
 import { Check, Clock, Zap } from 'lucide-react';
+
 
 interface InDeckIndicatorProps {
   isInDeck: boolean;
@@ -119,6 +119,7 @@ export function InDeckIndicator({
     </div>
   );
 }
+
 
 
 

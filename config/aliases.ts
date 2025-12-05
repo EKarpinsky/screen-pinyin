@@ -1,4 +1,4 @@
-import path from 'path';
+import path from 'node:path';
 
 // Use process.cwd() for consistent resolution from project root
 const rootDir = process.cwd();

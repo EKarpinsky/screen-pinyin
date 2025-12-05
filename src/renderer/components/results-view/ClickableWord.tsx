@@ -1,4 +1,3 @@
-import React, { useState } from 'react';
 import {
   useFloating,
   autoUpdate,
@@ -11,16 +10,19 @@ import {
   useInteractions,
   FloatingPortal,
 } from '@floating-ui/react';
-import { convertNumberedPinyin } from '../../utils/pinyin';
-import { isVariantEntry, isSurnameEntry } from '../../../shared/definition-utils';
-import { colors } from './colors';
-import { cedictData } from './cedict';
-import { isAllChinese, mapJiebaTagToPOS, getPOSColor } from './utils';
-import type { CharacterData, HSKEntry } from './types';
+import { useState } from 'react';
 
-// Data imports
 import hanziDictionary from '../../../data/hanzi-dictionary.json';
 import hskDictionary from '../../../data/hsk-dictionary.json';
+import { isVariantEntry, isSurnameEntry } from '../../../shared/definition-utils';
+import { convertNumberedPinyin } from '../../utils/pinyin';
+
+import { cedictData } from './cedict';
+import { colors } from './colors';
+import type { CharacterData, HSKEntry } from './types';
+import { isAllChinese, mapJiebaTagToPOS, getPOSColor } from './utils';
+
+// Data imports
 
 const dictionary = hanziDictionary as Record<string, CharacterData>;
 const hskData = hskDictionary as Record<string, HSKEntry>;
@@ -44,6 +46,24 @@ export function ClickableWord({
 }: ClickableWordProps) {
   const [isOpen, setIsOpen] = useState(false);
   
+  // Floating UI setup - must be called before any early returns
+  const { refs, floatingStyles, context } = useFloating({
+    open: isOpen,
+    onOpenChange: setIsOpen,
+    placement: 'top',
+    middleware: [
+      offset(8),
+      flip({ fallbackAxisSideDirection: 'start', padding: 8 }),
+      shift({ padding: 8 }),
+    ],
+    whileElementsMounted: autoUpdate,
+  });
+
+  const hover = useHover(context, { move: false, delay: { open: 200, close: 0 } });
+  const focus = useFocus(context);
+  const dismiss = useDismiss(context);
+  const { getReferenceProps, getFloatingProps } = useInteractions([hover, focus, dismiss]);
+
   // Guard against undefined/empty word
   if (!word) {
     return null;
@@ -74,33 +94,15 @@ export function ClickableWord({
     pinyin = convertNumberedPinyin(wordData.pinyin);
   } else if (charData) {
     const allDefs = cedictData[word]?.definitions || [];
-    const filteredDefs = allDefs.filter((d: string) => 
+    const filteredDef = allDefs.find((d: string) => 
       !d.startsWith('CL:') && !isVariantEntry(d) && !isSurnameEntry(d)
     );
-    const cedictDef = filteredDefs[0] || allDefs.filter((d: string) => !d.startsWith('CL:'))[0];
+    const cedictDef = filteredDef || allDefs.find((d: string) => !d.startsWith('CL:'));
     definition = convertNumberedPinyin(cedictDef || charData.definition || '');
     pinyin = charData.pinyin?.join(', ') || '';
   }
   
   const hasTooltipContent = definition || pinyin || hskLevel;
-
-  // Floating UI setup
-  const { refs, floatingStyles, context } = useFloating({
-    open: isOpen,
-    onOpenChange: setIsOpen,
-    placement: 'top',
-    middleware: [
-      offset(8),
-      flip({ fallbackAxisSideDirection: 'start', padding: 8 }),
-      shift({ padding: 8 }),
-    ],
-    whileElementsMounted: autoUpdate,
-  });
-
-  const hover = useHover(context, { move: false, delay: { open: 200, close: 0 } });
-  const focus = useFocus(context);
-  const dismiss = useDismiss(context);
-  const { getReferenceProps, getFloatingProps } = useInteractions([hover, focus, dismiss]);
 
   // For punctuation and non-Chinese, just render as-is
   if (!isChinese) {
@@ -120,11 +122,12 @@ export function ClickableWord({
 
   return (
     <>
-      <span
+      <button
+        type="button"
         ref={refs.setReference}
         {...getReferenceProps()}
         onClick={isClickable ? onClick : undefined}
-        className="inline-block font-['Microsoft_YaHei','PingFang_SC','Noto_Sans_SC',sans-serif] px-1 -mx-1 rounded transition-all duration-150"
+        className="inline-block font-['Microsoft_YaHei','PingFang_SC','Noto_Sans_SC',sans-serif] px-1 -mx-1 rounded transition-all duration-150 border-none bg-transparent"
         style={{
           fontSize: size,
           color: isOpen ? colors.primary : posColor.rest,
@@ -134,7 +137,7 @@ export function ClickableWord({
         }}
       >
         {word}
-      </span>
+      </button>
       
       {/* Tooltip via FloatingPortal */}
       <FloatingPortal>
@@ -171,4 +174,3 @@ export function ClickableWord({
     </>
   );
 }
-

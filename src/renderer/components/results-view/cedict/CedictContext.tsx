@@ -1,8 +1,9 @@
 import React, { createContext, useContext } from 'react';
+
+import cedictDictionaryJson from '../../../../data/cedict-dictionary.json';
 import type { CedictEntry, CedictContextType } from '../types';
 
 // JSON fallback data - imported by provider
-import cedictDictionaryJson from '../../../../data/cedict-dictionary.json';
 export const cedictJsonFallback = cedictDictionaryJson as Record<string, CedictEntry>;
 
 // Context with JSON fallback as default
@@ -18,4 +19,5 @@ export function useCedictEntry(key: string | undefined): CedictEntry | undefined
   const { getEntry } = useContext(CedictContext);
   return key ? getEntry(key) : undefined;
 }
+
 

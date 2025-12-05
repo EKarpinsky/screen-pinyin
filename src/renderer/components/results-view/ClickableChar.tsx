@@ -1,4 +1,3 @@
-import React, { useState } from 'react';
 import {
   useFloating,
   autoUpdate,
@@ -9,15 +8,18 @@ import {
   useInteractions,
   FloatingPortal,
 } from '@floating-ui/react';
-import { convertNumberedPinyin } from '../../utils/pinyin';
+import React, { useState } from 'react';
+
+import hanziDictionary from '../../../data/hanzi-dictionary.json';
+import hskDictionary from '../../../data/hsk-dictionary.json';
 import { isVariantEntry, isSurnameEntry } from '../../../shared/definition-utils';
-import { colors } from './colors';
+import { convertNumberedPinyin } from '../../utils/pinyin';
+
 import { cedictData } from './cedict';
+import { colors } from './colors';
 import type { CharacterData, HSKEntry } from './types';
 
 // Data imports
-import hanziDictionary from '../../../data/hanzi-dictionary.json';
-import hskDictionary from '../../../data/hsk-dictionary.json';
 
 const dictionary = hanziDictionary as Record<string, CharacterData>;
 const hskData = hskDictionary as Record<string, HSKEntry>;
@@ -76,10 +78,10 @@ export function ClickableChar({
 
   // Get definition - Priority: CC-CEDICT (filtered) → CC-CEDICT (any) → makemeahanzi fallback
   const allDefs = cedictData[char]?.definitions || [];
-  const filteredDefs = allDefs.filter((d: string) => 
+  const filteredDef = allDefs.find((d: string) => 
     !d.startsWith('CL:') && !isVariantEntry(d) && !isSurnameEntry(d)
   );
-  const cedictDef = filteredDefs[0] || allDefs.filter((d: string) => !d.startsWith('CL:'))[0];
+  const cedictDef = filteredDef || allDefs.find((d: string) => !d.startsWith('CL:'));
   const definition = convertNumberedPinyin(cedictDef || charData?.definition || '—');
   const pinyin = charData?.pinyin?.length > 0 ? charData.pinyin.join(', ') : '—';
   const hskLevel = hskData[char]?.level;
@@ -112,7 +114,7 @@ export function ClickableChar({
               {pinyin}
             </div>
             <div className="text-sm leading-relaxed text-white">
-              {definition.length > 60 ? definition.substring(0, 60) + '...' : definition}
+              {definition.length > 60 ? definition.slice(0, 60) + '...' : definition}
             </div>
             {hskLevel && (
               <span className="inline-flex items-center px-2 py-0.5 bg-white/15 rounded text-[0.7rem] font-semibold tracking-wide text-white mt-1.5 self-start">
@@ -125,4 +127,5 @@ export function ClickableChar({
     </>
   );
 }
+
 

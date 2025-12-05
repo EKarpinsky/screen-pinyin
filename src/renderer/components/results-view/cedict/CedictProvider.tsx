@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, ReactNode } from 'react';
-import { CedictContext, cedictJsonFallback } from './CedictContext';
+
 import type { CedictEntry } from '../types';
+
+import { CedictContext, cedictJsonFallback } from './CedictContext';
 
 interface CedictProviderProps {
   children: ReactNode;
@@ -62,4 +64,5 @@ export function CedictProvider({ children, keysToLoad }: CedictProviderProps) {
     </CedictContext.Provider>
   );
 }
+
 

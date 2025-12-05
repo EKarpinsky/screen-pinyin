@@ -1,20 +1,23 @@
 import React, { useState, useEffect, Activity } from 'react';
+
 import { cn } from '@utils';
+
 import { useTheme } from '../../contexts/theme-context';
 
 // Sub-components
-import { TitleBar } from './TitleBar';
-import { Sidebar } from './Sidebar';
 
 // External components
+import { FlashcardDeck } from '../flashcards';
+import { AmbientWidget } from '../flashcards/AmbientWidget';
+import { ExitPromptModal } from '../flashcards/ExitPromptModal';
+import { FlashcardReview } from '../flashcards/FlashcardReview';
+import { TranslationHistory } from '../history';
+import { ResultsViewWithDetail } from '../results-view-with-detail';
 import { SearchView } from '../search';
 import { SettingsPanel } from '../settings-panel';
-import { ResultsViewWithDetail } from '../results-view-with-detail';
-import { TranslationHistory } from '../history';
-import { FlashcardDeck } from '../flashcards';
-import { FlashcardReview } from '../flashcards/FlashcardReview';
-import { ExitPromptModal } from '../flashcards/ExitPromptModal';
-import { AmbientWidget } from '../flashcards/AmbientWidget';
+
+import { Sidebar } from './Sidebar';
+import { TitleBar } from './TitleBar';
 
 // Types
 import type { ViewType, HistoryItem, ResultsData } from './types';
