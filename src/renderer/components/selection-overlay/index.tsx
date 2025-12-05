@@ -92,6 +92,7 @@ export function SelectionOverlay() {
   }
 
   return (
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- This is a canvas-like drawing area for mouse selection
     <div
       ref={overlayRef}
       onMouseDown={handleMouseDown}

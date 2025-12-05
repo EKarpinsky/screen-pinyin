@@ -59,7 +59,7 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
             item.pinyin.toLowerCase().includes(queryLower)
         )
       : [],
-    dictionary: query ? sqliteResults.map(transformSqliteEntry) : [],
+    dictionary: query ? sqliteResults.map(entry => transformSqliteEntry(entry)) : [],
   };
 
   const totalResults = searchResults.history.length + searchResults.dictionary.length;

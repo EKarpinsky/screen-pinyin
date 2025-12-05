@@ -28,6 +28,7 @@ import { CharacterChip } from './results-view/CharacterChip';
 import { ClassifierButton } from './results-view/ClassifierButton';
 import { DefinitionList } from './results-view/DefinitionList';
 import { HSKBadge } from './results-view/HSKBadge';
+import { SectionLabel } from './results-view/SectionLabel';
 import type {
   HSKEntry,
   SentenceEntry,
@@ -43,7 +44,6 @@ import type {
 
 // Sub-components
 import { VariantButton } from './results-view/VariantButton';
-import { SectionLabel } from './results-view/SectionLabel';
 
 // Data
 const dictionary = hanziDictionary as Record<string, CharacterData>;
@@ -157,7 +157,7 @@ import { ScrollArea } from './ui/scroll-area';
 
 // Check if a character is Chinese
 function isChineseChar(char: string): boolean {
-  const code = char.charCodeAt(0);
+  const code = char.codePointAt(0) ?? 0;
   return (code >= 0x4E00 && code <= 0x9FFF) ||
          (code >= 0x3400 && code <= 0x4DBF) ||
          (code >= 0x2E80 && code <= 0x2EFF) ||
@@ -181,18 +181,20 @@ function parseClassifiers(classifierString: string): Array<{ character: string; 
   return items.map(item => {
     // Match patterns like "張|张[zhang1]" or just "张[zhang1]" or "张zhāng"
     // Handle both [pinyin1] format and already-converted tones
-    const bracketMatch = item.match(/(?:[^\|]+\|)?([^\[]+)\[([^\]]+)\]/);
+    const bracketMatch = item.match(/(?:[^|]+[|])?([^[]+)\[([^\]]+)\]/);
     if (bracketMatch) {
-      const [, char, pinyinNum] = bracketMatch;
+      const char = bracketMatch[1];
+      const pinyinNum = bracketMatch[2];
       // Convert numbered pinyin to tone marks
       const pinyin = convertNumberedPinyin(`[${pinyinNum}]`);
       return { character: char.trim(), pinyin };
     }
     
     // Match pattern without brackets: "张zhāng"
-    const directMatch = item.match(/(?:[^\|]+\|)?([^\s]+?)([a-zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü]+\d?)/i);
+    const directMatch = item.match(/(?:[^|]+[|])?([^\s]+?)([a-zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü]+\d?)/i);
     if (directMatch) {
-      const [, char, pinyin] = directMatch;
+      const char = directMatch[1];
+      const pinyin = directMatch[2];
       return { character: char.trim(), pinyin: pinyin.trim() };
     }
     
@@ -215,9 +217,10 @@ function parseVariant(variantString: string): { character: string; pinyin: strin
   const content = variantString.replace(/^(old |archaic |Japanese |)?variant of /i, '').trim();
   
   // Match pattern with brackets: "電|电[dian4]" or "兔[tu4]"
-  const bracketMatch = content.match(/(?:([^\|]+)\|)?([^\[]+)\[([^\]]+)\]/);
+  const bracketMatch = content.match(/(?:([^|]+)[|])?([^[]+)\[([^\]]+)\]/);
   if (bracketMatch) {
-    const [, , char, pinyinNum] = bracketMatch;
+    const char = bracketMatch[2];
+    const pinyinNum = bracketMatch[3];
     const pinyin = convertNumberedPinyin(`[${pinyinNum}]`);
     return { character: char.trim(), pinyin, type };
   }
@@ -347,7 +350,8 @@ function ClickableChar({
 
   return (
     <>
-      <span
+      <button
+        type="button"
         ref={refs.setReference}
         {...getReferenceProps()}
         onClick={onClick}
@@ -359,12 +363,18 @@ function ClickableChar({
           cursor: 'pointer',
           transition: 'color 0.15s',
           display: 'inline-block',
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          margin: 0,
         }}
-        onMouseOver={(e) => e.currentTarget.style.color = colors.primary}
-        onMouseOut={(e) => e.currentTarget.style.color = highlight ? colors.primary : colors.foreground}
+        onMouseOver={(e) => { e.currentTarget.style.color = colors.primary; }}
+        onMouseOut={(e) => { e.currentTarget.style.color = highlight ? colors.primary : colors.foreground; }}
+        onFocus={(e) => { e.currentTarget.style.color = colors.primary; }}
+        onBlur={(e) => { e.currentTarget.style.color = highlight ? colors.primary : colors.foreground; }}
       >
         {char}
-      </span>
+      </button>
 
       <FloatingPortal>
         {showTooltip && (
@@ -518,7 +528,8 @@ function ClickableWord({
 
   return (
     <>
-      <span
+      <button
+        type="button"
         ref={refs.setReference}
         {...getReferenceProps()}
         onClick={isClickable ? onClick : undefined}
@@ -535,10 +546,11 @@ function ClickableWord({
           backgroundColor: isOpen ? posColor.hover : 'transparent',
           transition: 'all 0.15s ease',
           transform: isOpen ? 'translateY(-1px)' : 'none',
+          border: 'none',
         }}
       >
         {word}
-      </span>
+      </button>
       
       {/* Tooltip via FloatingPortal */}
       <FloatingPortal>
@@ -624,7 +636,8 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
   // Collect all unique characters/words that need dictionary lookup
   const keysToLoad = React.useMemo(() => {
     const keys = new Set<string>([data.original]);
-    // Add original text and its characters
+    // Add original text and its characters
+
     for (const char of data.original) {
       if (/[\u4E00-\u9FFF]/.test(char)) {
         keys.add(char);
@@ -1022,8 +1035,10 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
               marginBottom: 20,
               transition: 'color 0.2s',
             }}
-            onMouseOver={(e) => e.currentTarget.style.color = colors.foreground}
-            onMouseOut={(e) => e.currentTarget.style.color = colors.muted}
+            onMouseOver={(e) => { e.currentTarget.style.color = colors.foreground; }}
+            onMouseOut={(e) => { e.currentTarget.style.color = colors.muted; }}
+            onFocus={(e) => { e.currentTarget.style.color = colors.foreground; }}
+            onBlur={(e) => { e.currentTarget.style.color = colors.muted; }}
           >
             <ArrowLeft size={16} />
             Back to History
@@ -1151,6 +1166,18 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                       e.currentTarget.style.color = colors.foreground;
                     }
                   }}
+                  onFocus={(e) => {
+                    if (!copied) {
+                      e.currentTarget.style.backgroundColor = colors.foreground;
+                      e.currentTarget.style.color = colors.card;
+                    }
+                  }}
+                  onBlur={(e) => {
+                    if (!copied) {
+                      e.currentTarget.style.backgroundColor = 'var(--muted)';
+                      e.currentTarget.style.color = colors.foreground;
+                    }
+                  }}
                 >
                   {copied ? <Check size={16} /> : <Copy size={16} />}
                   {copied ? 'Copied!' : 'Copy All'}
@@ -1184,6 +1211,18 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                     }
                   }}
                   onMouseOut={(e) => {
+                    if (!isInDeck && !addedToDeck) {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                      e.currentTarget.style.color = colors.primary;
+                    }
+                  }}
+                  onFocus={(e) => {
+                    if (!isInDeck && !addedToDeck) {
+                      e.currentTarget.style.backgroundColor = colors.primary;
+                      e.currentTarget.style.color = colors.card;
+                    }
+                  }}
+                  onBlur={(e) => {
                     if (!isInDeck && !addedToDeck) {
                       e.currentTarget.style.backgroundColor = 'transparent';
                       e.currentTarget.style.color = colors.primary;
@@ -1239,8 +1278,10 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                 padding: 4,
                 transition: 'color 0.15s',
               }}
-              onMouseOver={(e) => e.currentTarget.style.color = colors.foreground}
-              onMouseOut={(e) => e.currentTarget.style.color = colors.muted}
+              onMouseOver={(e) => { e.currentTarget.style.color = colors.foreground; }}
+              onMouseOut={(e) => { e.currentTarget.style.color = colors.muted; }}
+              onFocus={(e) => { e.currentTarget.style.color = colors.foreground; }}
+              onBlur={(e) => { e.currentTarget.style.color = colors.muted; }}
             >
               <ChevronLeft size={16} />
               {detailHistory.length > 0 ? 'Previous' : (isLookupMode ? 'Back' : 'Close')}
@@ -1268,8 +1309,10 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                 display: 'flex',
                 transition: 'color 0.15s',
               }}
-              onMouseOver={(e) => e.currentTarget.style.color = colors.foreground}
-              onMouseOut={(e) => e.currentTarget.style.color = colors.muted}
+              onMouseOver={(e) => { e.currentTarget.style.color = colors.foreground; }}
+              onMouseOut={(e) => { e.currentTarget.style.color = colors.muted; }}
+              onFocus={(e) => { e.currentTarget.style.color = colors.foreground; }}
+              onBlur={(e) => { e.currentTarget.style.color = colors.muted; }}
             >
               <X size={18} />
             </button>
@@ -1329,6 +1372,18 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                   e.currentTarget.style.color = colors.primary;
                 }
               }}
+              onFocus={(e) => {
+                if (!isInDeck && !addedToDeck) {
+                  e.currentTarget.style.backgroundColor = colors.primary;
+                  e.currentTarget.style.color = colors.card;
+                }
+              }}
+              onBlur={(e) => {
+                if (!isInDeck && !addedToDeck) {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = colors.primary;
+                }
+              }}
             >
               {addedToDeck ? <Check size={14} /> : (isInDeck ? <BookOpen size={14} /> : <Plus size={14} />)}
               {addedToDeck ? 'Added!' : (isInDeck ? 'In Deck' : 'Add to Flashcards')}
@@ -1363,6 +1418,12 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                       if (activeTab !== tab) e.currentTarget.style.color = colors.foreground;
                     }}
                     onMouseOut={(e) => {
+                      if (activeTab !== tab) e.currentTarget.style.color = colors.muted;
+                    }}
+                    onFocus={(e) => {
+                      if (activeTab !== tab) e.currentTarget.style.color = colors.foreground;
+                    }}
+                    onBlur={(e) => {
                       if (activeTab !== tab) e.currentTarget.style.color = colors.muted;
                     }}
                   >
@@ -1578,6 +1639,16 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                             }
                           }}
                           onMouseOut={(e) => {
+                            e.currentTarget.style.backgroundColor = colors.card;
+                            e.currentTarget.style.borderColor = colors.border;
+                          }}
+                          onFocus={(e) => {
+                            if (charData) {
+                              e.currentTarget.style.backgroundColor = colors.wordHighlight;
+                              e.currentTarget.style.borderColor = colors.primary;
+                            }
+                          }}
+                          onBlur={(e) => {
                             e.currentTarget.style.backgroundColor = colors.card;
                             e.currentTarget.style.borderColor = colors.border;
                           }}
@@ -1871,8 +1942,8 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                 {(() => {
                   const allDefs = cedictData[currentCharacter.character]?.definitions || [];
                   const variants = allDefs
-                    .filter(isVariantEntry)
-                    .map(parseVariant)
+                    .filter(def => isVariantEntry(def))
+                    .map(def => parseVariant(def))
                     .filter((v): v is { character: string; pinyin: string; type: string } => v !== null);
                   
                   if (variants.length === 0) return null;
@@ -1900,7 +1971,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                   const allDefs = cedictData[currentCharacter.character]?.definitions || [];
                   
                   // Get standalone CL: entries
-                  const standaloneCLs = allDefs.filter(isClassifierEntry);
+                  const standaloneCLs = allDefs.filter(def => isClassifierEntry(def));
                   
                   // Extract inline CLs from other definitions
                   const inlineCLs = allDefs
@@ -1909,7 +1980,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
                     .filter((cl): cl is string => cl !== null);
                   
                   // Combine all classifier sources
-                  const allClassifiers = [...standaloneCLs, ...inlineCLs].flatMap(parseClassifiers);
+                  const allClassifiers = [...standaloneCLs, ...inlineCLs].flatMap(cl => parseClassifiers(cl));
                   
                   if (allClassifiers.length === 0) return null;
                   

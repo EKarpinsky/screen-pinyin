@@ -88,11 +88,12 @@ export function ClickableChar({
 
   return (
     <>
-      <span
+      <button
+        type="button"
         ref={refs.setReference}
         {...getReferenceProps()}
         onClick={onClick}
-        className="font-['Microsoft_YaHei','PingFang_SC','Noto_Sans_SC',sans-serif] cursor-pointer transition-colors duration-150 inline-block hover:text-[var(--primary)]"
+        className="font-['Microsoft_YaHei','PingFang_SC','Noto_Sans_SC',sans-serif] cursor-pointer transition-colors duration-150 inline-block hover:text-[var(--primary)] bg-transparent border-none p-0 m-0"
         style={{
           fontSize: size,
           color: highlight ? colors.primary : colors.foreground,
@@ -100,7 +101,7 @@ export function ClickableChar({
         }}
       >
         {char}
-      </span>
+      </button>
 
       <FloatingPortal>
         {showTooltip && (
