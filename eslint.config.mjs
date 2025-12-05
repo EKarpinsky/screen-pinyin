@@ -126,6 +126,7 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'warn',
       'react/prop-types': 'off', // We use TypeScript for props
       'no-unused-vars': 'off', // Let TypeScript handle this
+      'unicorn/filename-case': 'off', // Allow camelCase for hooks/components
       '@typescript-eslint/no-unused-vars': ['warn', { 
         argsIgnorePattern: '^_',
         varsIgnorePattern: '^_',
@@ -134,12 +135,6 @@ export default tseslint.config(
       // Unicorn rule customizations (some are too strict for Electron)
       'unicorn/prevent-abbreviations': 'off', // Allow common abbreviations like err, props, etc.
       'unicorn/no-null': 'off', // Electron APIs use null
-      'unicorn/filename-case': ['error', {
-        cases: {
-          kebabCase: true,
-          pascalCase: true, // Allow PascalCase for React components
-        },
-      }],
       'unicorn/prefer-module': 'off', // Electron uses CommonJS in main process
       'unicorn/prefer-top-level-await': 'off', // Not always supported in Electron
       'unicorn/prefer-global-this': 'off', // `window` is idiomatic in browser/Electron renderer

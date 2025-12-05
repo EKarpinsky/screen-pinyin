@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 
-import { useKeyboardShortcut } from '../../hooks/use-keyboard-shortcut';
+import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
 
 import { SelectionError } from './SelectionError';
 import { SelectionInstructions } from './SelectionInstructions';

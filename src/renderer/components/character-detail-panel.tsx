@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react"
 import hanziDictionary from "../../data/hanzi-dictionary.json"
 import hskDictionary from "../../data/hsk-dictionary.json"
 import sentencesDictionary from "../../data/sentences-dictionary.json"
-import { useKeyboardShortcut } from "../hooks/use-keyboard-shortcut"
+import { useKeyboardShortcut } from "../hooks/useKeyboardShortcut"
 
 // Sentences dictionary type
 interface SentenceEntry {

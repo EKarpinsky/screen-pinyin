@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 
 import hskDictionary from '../../../data/hsk-dictionary.json';
-import { useKeyboardShortcut } from '../../hooks/use-keyboard-shortcut';
+import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
 import { ScrollArea } from '../ui/scroll-area';
 
 // Sub-components

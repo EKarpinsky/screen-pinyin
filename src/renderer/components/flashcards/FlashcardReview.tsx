@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 
 import { cn } from '@utils';
 
-import { useKeyboardShortcut } from '../../hooks/use-keyboard-shortcut';
+import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
 
 import type { FlashcardData, FlashcardIntervals, FlashcardReviewProps } from './types';
 import { Rating } from './types';
