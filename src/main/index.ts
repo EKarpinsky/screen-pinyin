@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { app, BrowserWindow, globalShortcut, ipcMain, screen, Tray, Menu, nativeImage, Notification } from 'electron';
 import Store from 'electron-store';
-import schedule from 'node-schedule';
+import { scheduleJob } from 'node-schedule';
 import nodejieba from 'nodejieba';
 import { createWorker, Worker } from 'tesseract.js';
 import { fsrs, Rating, State, Card, Grade } from 'ts-fsrs';
@@ -77,7 +77,7 @@ const setupNotificationScheduler = () => {
 
   for (const hour of times) {
     // Schedule job for each hour
-    const job = schedule.scheduleJob({ hour, minute: 0 }, async () => {
+    const job = scheduleJob({ hour, minute: 0 }, async () => {
       const dueCards = getDueFlashcards();
       if (dueCards.length > 0 && Notification.isSupported()) {
         const notification = new Notification({

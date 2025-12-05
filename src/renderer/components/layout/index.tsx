@@ -1,12 +1,8 @@
-import React, { useState, useEffect, Activity } from 'react';
+import { useState, useEffect } from 'react';
 
 import { cn } from '@utils';
 
 import { useTheme } from '../../contexts/theme-context';
-
-// Sub-components
-
-// External components
 import { FlashcardDeck } from '../flashcards';
 import { AmbientWidget } from '../flashcards/AmbientWidget';
 import { ExitPromptModal } from '../flashcards/ExitPromptModal';
@@ -18,8 +14,6 @@ import { SettingsPanel } from '../settings-panel';
 
 import { Sidebar } from './Sidebar';
 import { TitleBar } from './TitleBar';
-
-// Types
 import type { ViewType, HistoryItem, ResultsData } from './types';
 
 export function MainAppLayout() {

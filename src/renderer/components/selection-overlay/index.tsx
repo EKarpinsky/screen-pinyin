@@ -39,9 +39,9 @@ export function SelectionOverlay() {
           return;
         }
         setScreenshotUrl(url);
-      } catch (err: any) {
+      } catch (err) {
         console.error('[SelectionOverlay] Screenshot error:', err);
-        setError('Screenshot error: ' + err.message);
+        setError('Screenshot error: ' + (err instanceof Error ? err.message : String(err)));
       }
     };
     

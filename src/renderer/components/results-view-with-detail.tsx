@@ -10,23 +10,20 @@ import {
   useInteractions,
   FloatingPortal,
 } from '@floating-ui/react';
-import { Copy, Check, X, ArrowLeft, ChevronLeft, ChevronRight, BookOpen, Plus } from 'lucide-react';
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-
+import { Copy, Check, X, ArrowLeft, ChevronLeft, BookOpen, Plus } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback, createContext, useContext, useMemo, type ReactNode } from 'react';
 
 import cedictDictionaryJson from '../../data/cedict-dictionary.json';
 import hanziDictionary from '../../data/hanzi-dictionary.json';
 import hskDictionary from '../../data/hsk-dictionary.json';
 import sentencesDictionary from '../../data/sentences-dictionary.json';
-import { isVariantEntry, isSurnameEntry, isClassifierEntry, filterDefinitions, extractInlineClassifier, hasInlineClassifier } from '../../shared/definition-utils';
+import { isVariantEntry, isSurnameEntry, isClassifierEntry, extractInlineClassifier } from '../../shared/definition-utils';
 import { TaggedWord } from '../../shared/types';
 import { useKeyboardShortcut } from '../hooks/useKeyboardShortcut';
 import { convertNumberedPinyin } from '../utils/pinyin';
 
-// Types - imported from extracted module
-import { CharacterChip } from './results-view/CharacterChip';
 import { ClassifierButton } from './results-view/ClassifierButton';
-import { DefinitionList } from './results-view/DefinitionList';
+import { colors } from './results-view/colors';
 import { HSKBadge } from './results-view/HSKBadge';
 import { SectionLabel } from './results-view/SectionLabel';
 import type {
@@ -35,15 +32,11 @@ import type {
   CharacterData,
   CedictEntry,
   WordData,
-  ViewMode,
-  ResultsData,
   ResultsViewWithDetailProps,
-  DetailType,
   DetailState,
 } from './results-view/types';
-
-// Sub-components
 import { VariantButton } from './results-view/VariantButton';
+import { ScrollArea } from './ui/scroll-area';
 
 // Data
 const dictionary = hanziDictionary as Record<string, CharacterData>;
@@ -58,27 +51,24 @@ interface CedictContextType {
   cache: Record<string, CedictEntry>;
 }
 
-const CedictContext = React.createContext<CedictContextType>({
+const CedictContext = createContext<CedictContextType>({
   getEntry: (key) => cedictJsonFallback[key],
   cache: {},
 });
 
-// Hook to use cedict data
-function useCedictEntry(key: string | undefined): CedictEntry | undefined {
-  const { getEntry } = React.useContext(CedictContext);
-  return key ? getEntry(key) : undefined;
-}
-
 // Provider component that loads from SQLite
-function CedictProvider({ children, keysToLoad }: { children: React.ReactNode; keysToLoad: string[] }) {
+function CedictProvider({ children, keysToLoad }: { children: ReactNode; keysToLoad: string[] }) {
   const [cache, setCache] = useState<Record<string, CedictEntry>>({});
-  const [loadedFromSqlite, setLoadedFromSqlite] = useState(false);
+  
+  // Memoize keys string for stable dependency
+  const keysString = useMemo(() => keysToLoad.join(','), [keysToLoad]);
 
   // Load entries from SQLite when keys change
   useEffect(() => {
     const loadEntries = async () => {
       // Filter to only keys we haven't loaded yet
-      const keysToFetch = keysToLoad.filter(k => k && !cache[k]);
+      const keys = keysString.split(',').filter(Boolean);
+      const keysToFetch = keys.filter(k => !cache[k]);
       if (keysToFetch.length === 0) return;
 
       try {
@@ -91,7 +81,7 @@ function CedictProvider({ children, keysToLoad }: { children: React.ReactNode; k
           
           if (results && typeof results === 'object') {
             const newEntries: Record<string, CedictEntry> = {};
-            Object.entries(results).forEach(([key, entry]: [string, { simplified: string; traditional: string; pinyin: string; definitions: string }]) => {
+            for (const [key, entry] of Object.entries(results) as [string, { simplified: string; traditional: string; pinyin: string; definitions: string }][]) {
               if (entry) {
                 newEntries[key] = {
                   traditional: entry.traditional,
@@ -100,9 +90,8 @@ function CedictProvider({ children, keysToLoad }: { children: React.ReactNode; k
                   definitions: entry.definitions.split('; ').filter(d => d.trim() !== ''),
                 };
               }
-            });
+            }
             setCache(prev => ({ ...prev, ...newEntries }));
-            setLoadedFromSqlite(true);
           }
         }
       } catch {
@@ -111,7 +100,7 @@ function CedictProvider({ children, keysToLoad }: { children: React.ReactNode; k
     };
 
     loadEntries();
-  }, [keysToLoad.join(',')]); // Dependency on joined keys to avoid object comparison issues
+  }, [keysString, cache]);
 
   // Get entry: SQLite cache first, then JSON fallback
   const getEntry = useCallback((key: string): CedictEntry | undefined => {
@@ -139,7 +128,7 @@ const cedictData = new Proxy({} as Record<string, CedictEntry>, {
 
 // Bridge component to connect Context to global getter
 function CedictContextBridge() {
-  const { getEntry } = React.useContext(CedictContext);
+  const { getEntry } = useContext(CedictContext);
   
   useEffect(() => {
     globalCedictGetter = getEntry;
@@ -150,10 +139,6 @@ function CedictContextBridge() {
   
   return null;
 }
-
-// Colors - imported from extracted module (includes wordHighlight fix)
-import { colors } from './results-view/colors';
-import { ScrollArea } from './ui/scroll-area';
 
 // Check if a character is Chinese
 function isChineseChar(char: string): boolean {
@@ -634,7 +619,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
   const isLookupMode = data.mode === 'lookup';
 
   // Collect all unique characters/words that need dictionary lookup
-  const keysToLoad = React.useMemo(() => {
+  const keysToLoad = useMemo(() => {
     const keys = new Set<string>([data.original]);
     // Add original text and its characters
 

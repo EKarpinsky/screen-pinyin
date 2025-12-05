@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 
 import hskDictionary from '../../../data/hsk-dictionary.json';
@@ -50,7 +50,7 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
 
   // Filter results based on query
   const queryLower = query.toLowerCase();
-  const searchResults = {
+  const searchResults = useMemo(() => ({
     history: query
       ? historyItems.filter(
           (item) =>
@@ -60,7 +60,7 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
         )
       : [],
     dictionary: query ? sqliteResults.map(entry => transformSqliteEntry(entry)) : [],
-  };
+  }), [query, queryLower, historyItems, sqliteResults]);
 
   const totalResults = searchResults.history.length + searchResults.dictionary.length;
   const hasResults = totalResults > 0;

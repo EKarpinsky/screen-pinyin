@@ -1,5 +1,5 @@
 import { Copy, Check, ArrowLeft, BookOpen, Plus } from 'lucide-react';
-import React, { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { ScrollArea } from '../ui/scroll-area';
 

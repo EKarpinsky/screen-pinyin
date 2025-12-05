@@ -8,7 +8,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from '@floating-ui/react';
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 import hanziDictionary from '../../../data/hanzi-dictionary.json';
 import hskDictionary from '../../../data/hsk-dictionary.json';

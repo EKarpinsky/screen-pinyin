@@ -1,5 +1,5 @@
 import { Check, Eye, EyeOff } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 import { cn } from '@utils';
 

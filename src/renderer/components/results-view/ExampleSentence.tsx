@@ -1,4 +1,3 @@
-import React from 'react';
 
 import { ClickableChar } from './ClickableChar';
 import { colors } from './colors';

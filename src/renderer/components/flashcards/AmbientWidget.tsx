@@ -1,5 +1,5 @@
 import { ChevronRight, X, Minimize2, Maximize2 } from 'lucide-react';
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 import type { FlashcardData } from '../../../shared/types';
 
