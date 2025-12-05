@@ -100,7 +100,8 @@ function CedictProvider({ children, keysToLoad }: { children: ReactNode; keysToL
     };
 
     loadEntries();
-  }, [keysString, cache]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- cache intentionally excluded to prevent re-fetching already-cached entries
+  }, [keysString]);
 
   // Get entry: SQLite cache first, then JSON fallback
   const getEntry = useCallback((key: string): CedictEntry | undefined => {
