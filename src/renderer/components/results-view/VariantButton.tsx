@@ -1,4 +1,5 @@
-import React from 'react';
+
+
 import { colors } from './colors';
 
 interface VariantButtonProps {
@@ -36,4 +37,5 @@ export function VariantButton({ character, pinyin, variantType, onClick }: Varia
     </button>
   );
 }
+
 

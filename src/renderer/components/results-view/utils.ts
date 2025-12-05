@@ -1,15 +1,16 @@
 // Utility functions for results-view components
 
-import { convertNumberedPinyin } from '../../utils/pinyin';
 import { isVariantEntry, extractInlineClassifier } from '../../../shared/definition-utils';
-import type { POS } from './types';
+import { convertNumberedPinyin } from '../../utils/pinyin';
+
 import { colors } from './colors';
+import type { POS } from './types';
 
 /**
  * Check if a character is Chinese (CJK Unified Ideographs)
  */
 export function isChineseChar(char: string): boolean {
-  const code = char.charCodeAt(0);
+  const code = char.codePointAt(0) ?? 0;
   return (code >= 0x4E00 && code <= 0x9FFF) ||   // CJK Unified Ideographs
          (code >= 0x3400 && code <= 0x4DBF) ||   // CJK Unified Ideographs Extension A
          (code >= 0x2E80 && code <= 0x2EFF) ||   // CJK Radicals Supplement
@@ -20,7 +21,7 @@ export function isChineseChar(char: string): boolean {
  * Check if string contains only Chinese characters (and whitespace)
  */
 export function isAllChinese(str: string): boolean {
-  return str.split('').every(char => isChineseChar(char) || /\s/.test(char));
+  return [...str].every(char => isChineseChar(char) || /\s/.test(char));
 }
 
 /**
@@ -42,17 +43,19 @@ export function parseClassifiers(classifierString: string): Array<{ character: s
   
   return items.map(item => {
     // Match patterns like "張|张[zhang1]" or just "张[zhang1]" or "张zhāng"
-    const bracketMatch = item.match(/(?:[^\|]+\|)?([^\[]+)\[([^\]]+)\]/);
+    const bracketMatch = item.match(/(?:[^|]+[|])?([^[]+)\[([^\]]+)\]/);
     if (bracketMatch) {
-      const [, char, pinyinNum] = bracketMatch;
+      const char = bracketMatch[1];
+      const pinyinNum = bracketMatch[2];
       const pinyin = convertNumberedPinyin(`[${pinyinNum}]`);
       return { character: char.trim(), pinyin };
     }
     
     // Match pattern without brackets: "张zhāng"
-    const directMatch = item.match(/(?:[^\|]+\|)?([^\s]+?)([a-zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü]+\d?)/i);
+    const directMatch = item.match(/(?:[^|]+[|])?([^\s]+?)([a-zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü]+\d?)/i);
     if (directMatch) {
-      const [, char, pinyin] = directMatch;
+      const char = directMatch[1];
+      const pinyin = directMatch[2];
       return { character: char.trim(), pinyin: pinyin.trim() };
     }
     
@@ -74,9 +77,10 @@ export function parseVariant(variantString: string): { character: string; pinyin
   const content = variantString.replace(/^(old |archaic |Japanese |)?variant of /i, '').trim();
   
   // Match pattern with brackets: "電|电[dian4]" or "兔[tu4]"
-  const bracketMatch = content.match(/(?:([^\|]+)\|)?([^\[]+)\[([^\]]+)\]/);
+  const bracketMatch = content.match(/(?:([^|]+)[|])?([^[]+)\[([^\]]+)\]/);
   if (bracketMatch) {
-    const [, , char, pinyinNum] = bracketMatch;
+    const char = bracketMatch[2];
+    const pinyinNum = bracketMatch[3];
     const pinyin = convertNumberedPinyin(`[${pinyinNum}]`);
     return { character: char.trim(), pinyin, type };
   }
@@ -105,16 +109,21 @@ export function parseVariant(variantString: string): { character: string; pinyin
 export function mapJiebaTagToPOS(tag: string): POS {
   const firstChar = tag.charAt(0).toLowerCase();
   switch (firstChar) {
-    case 'n':  // n, nr, ns, nt, nz, etc. (nouns)
+    case 'n': {  // n, nr, ns, nt, nz, etc. (nouns)
       return 'noun';
-    case 'v':  // v, vd, vn, etc. (verbs)
+    }
+    case 'v': {  // v, vd, vn, etc. (verbs)
       return 'verb';
-    case 'a':  // a, ad, an, etc. (adjectives)
+    }
+    case 'a': {  // a, ad, an, etc. (adjectives)
       return 'adjective';
-    case 'd':  // d (adverbs)
+    }
+    case 'd': {  // d (adverbs)
       return 'adverb';
-    default:
+    }
+    default: {
       return 'unknown';
+    }
   }
 }
 
@@ -123,16 +132,22 @@ export function mapJiebaTagToPOS(tag: string): POS {
  */
 export function getPOSColor(pos: POS): { rest: string; hover: string } {
   switch (pos) {
-    case 'verb':
+    case 'verb': {
       return { rest: colors.verb, hover: colors.verbHover };
-    case 'noun':
+    }
+    case 'noun': {
       return { rest: colors.noun, hover: colors.nounHover };
-    case 'adjective':
+    }
+    case 'adjective': {
       return { rest: colors.adjective, hover: colors.adjectiveHover };
-    case 'adverb':
+    }
+    case 'adverb': {
       return { rest: colors.adverb, hover: colors.adverbHover };
-    default:
+    }
+    default: {
       return { rest: 'var(--foreground)', hover: 'var(--hover-bg)' };
+    }
   }
 }
+
 

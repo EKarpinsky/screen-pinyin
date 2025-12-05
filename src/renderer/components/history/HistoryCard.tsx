@@ -1,6 +1,8 @@
-import React from 'react';
-import { cn, formatDate, formatTime, getDynamicFontSize } from '@utils';
+
+
 import { XIcon } from '@components/ui/icons';
+import { cn, formatDate, formatTime, getDynamicFontSize } from '@utils';
+
 import { HistoryItem } from './types';
 
 interface HistoryCardProps {
@@ -24,10 +26,11 @@ export function HistoryCard({
     <div
       style={{ animation: `slideUp 0.5s ${animationDelay} ease-out backwards` }}
     >
-      <div
+      <button
+        type="button"
         className={cn(
-          "history-card w-full relative cursor-pointer",
-          "rounded-lg p-8 overflow-hidden"
+          "history-card w-full relative cursor-pointer text-left",
+          "rounded-lg p-8 overflow-hidden bg-transparent border-none"
         )}
         onClick={() => onItemClick(item)}
       >
@@ -120,7 +123,7 @@ export function HistoryCard({
             </p>
           </div>
         </div>
-      </div>
+      </button>
     </div>
   );
 }

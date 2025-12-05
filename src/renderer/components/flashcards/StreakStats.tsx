@@ -1,5 +1,5 @@
-import React from 'react';
 import { Flame, Award, TrendingUp } from 'lucide-react';
+
 
 interface StreakStatsProps {
   currentStreak: number;
@@ -181,6 +181,7 @@ export function StreakStats({
     </div>
   );
 }
+
 
 
 

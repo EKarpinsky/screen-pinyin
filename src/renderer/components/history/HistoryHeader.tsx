@@ -1,6 +1,7 @@
-import React from 'react';
-import { cn } from '@utils';
+
+
 import { SearchIcon, XIcon } from '@components/ui/icons';
+import { cn } from '@utils';
 
 interface HistoryHeaderProps {
   itemCount: number;
@@ -24,7 +25,7 @@ export function HistoryHeader({
     )}>
       <div className={cn(
         "flex items-baseline justify-between",
-        !isEmpty ? "mb-5" : ""
+        isEmpty ? "" : "mb-5"
       )}>
         <div>
           <h1 className={cn(
@@ -38,7 +39,7 @@ export function HistoryHeader({
               "text-[var(--tertiary-foreground)] text-xs",
               "tracking-[0.15em] uppercase mt-2 font-medium"
             )}>
-              {itemCount} translation{itemCount !== 1 ? 's' : ''}
+              {itemCount} translation{itemCount === 1 ? '' : 's'}
             </p>
           )}
         </div>

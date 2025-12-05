@@ -1,29 +1,31 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
+
+import hskDictionary from '../../../data/hsk-dictionary.json';
 import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
 import { ScrollArea } from '../ui/scroll-area';
-import hskDictionary from '../../../data/hsk-dictionary.json';
-import { transformSqliteEntry } from './utils';
 
 // Sub-components
-import { SearchInput } from './SearchInput';
-import { SearchEmptyState } from './SearchEmptyState';
-import { SearchNoResults } from './SearchNoResults';
-import { HistoryResultItem } from './HistoryResultItem';
 import { DictionaryResultItem } from './DictionaryResultItem';
-import { TranslateAction } from './TranslateAction';
+import { HistoryResultItem } from './HistoryResultItem';
 import { KeyboardHint } from './KeyboardHint';
-
+import { SearchEmptyState } from './SearchEmptyState';
+import { SearchInput } from './SearchInput';
+import { SearchNoResults } from './SearchNoResults';
+import { TranslateAction } from './TranslateAction';
 // Types
 import type {
-  HistoryItem,
-  DictionaryEntry,
   HSKEntry,
   SQLiteDictionaryEntry,
   SearchViewProps,
 } from './types';
+import { transformSqliteEntry } from './utils';
 
 const hskData = hskDictionary as Record<string, HSKEntry>;
+
+function getHSKLevel(char: string): number | null {
+  return hskData[char]?.level || null;
+}
 
 export function SearchView({ historyItems, onItemClick, onTranslateText }: SearchViewProps) {
   const [query, setQuery] = useState('');
@@ -48,7 +50,7 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
 
   // Filter results based on query
   const queryLower = query.toLowerCase();
-  const searchResults = {
+  const searchResults = useMemo(() => ({
     history: query
       ? historyItems.filter(
           (item) =>
@@ -57,8 +59,8 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
             item.pinyin.toLowerCase().includes(queryLower)
         )
       : [],
-    dictionary: query ? sqliteResults.map(transformSqliteEntry) : [],
-  };
+    dictionary: query ? sqliteResults.map(entry => transformSqliteEntry(entry)) : [],
+  }), [query, queryLower, historyItems, sqliteResults]);
 
   const totalResults = searchResults.history.length + searchResults.dictionary.length;
   const hasResults = totalResults > 0;
@@ -99,10 +101,6 @@ export function SearchView({ historyItems, onItemClick, onTranslateText }: Searc
     setQuery(newQuery);
     setSelectedIndex(0);
     debouncedSearch(newQuery);
-  };
-
-  const getHSKLevel = (char: string): number | null => {
-    return hskData[char]?.level || null;
   };
 
   return (

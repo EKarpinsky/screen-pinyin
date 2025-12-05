@@ -1,22 +1,19 @@
-import React, { useState, useEffect, Activity } from 'react';
+import { useState, useEffect } from 'react';
+
 import { cn } from '@utils';
+
 import { useTheme } from '../../contexts/theme-context';
-
-// Sub-components
-import { TitleBar } from './TitleBar';
-import { Sidebar } from './Sidebar';
-
-// External components
+import { FlashcardDeck } from '../flashcards';
+import { AmbientWidget } from '../flashcards/AmbientWidget';
+import { ExitPromptModal } from '../flashcards/ExitPromptModal';
+import { FlashcardReview } from '../flashcards/FlashcardReview';
+import { TranslationHistory } from '../history';
+import { ResultsViewWithDetail } from '../results-view-with-detail';
 import { SearchView } from '../search';
 import { SettingsPanel } from '../settings-panel';
-import { ResultsViewWithDetail } from '../results-view-with-detail';
-import { TranslationHistory } from '../history';
-import { FlashcardDeck } from '../flashcards';
-import { FlashcardReview } from '../flashcards/FlashcardReview';
-import { ExitPromptModal } from '../flashcards/ExitPromptModal';
-import { AmbientWidget } from '../flashcards/AmbientWidget';
 
-// Types
+import { Sidebar } from './Sidebar';
+import { TitleBar } from './TitleBar';
 import type { ViewType, HistoryItem, ResultsData } from './types';
 
 export function MainAppLayout() {
@@ -356,37 +353,46 @@ export function MainAppLayout() {
           )}
 
           {currentView === 'results' && (
-            isProcessing ? (
-              <div className="flex-1 flex items-center justify-center">
-                <div className="text-center text-[var(--muted-foreground)]">
-                  <div className="w-6 h-6 mx-auto mb-4 border-2 border-[var(--border)] border-t-[var(--foreground)] rounded-full animate-spin" />
-                  <div className="text-sm">Processing...</div>
-                </div>
-              </div>
-            ) : processError ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-8">
-                <div className="text-center p-8 max-w-[400px]">
-                  <div className="text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-red-600 dark:text-red-400 mb-3">
-                    Error
+            (() => {
+              if (isProcessing) {
+                return (
+                  <div className="flex-1 flex items-center justify-center">
+                    <div className="text-center text-[var(--muted-foreground)]">
+                      <div className="w-6 h-6 mx-auto mb-4 border-2 border-[var(--border)] border-t-[var(--foreground)] rounded-full animate-spin" />
+                      <div className="text-sm">Processing...</div>
+                    </div>
                   </div>
-                  <div className="text-sm text-[var(--foreground)] leading-relaxed mb-6">
-                    {processError}
+                );
+              }
+              if (processError) {
+                return (
+                  <div className="flex-1 flex flex-col items-center justify-center p-8">
+                    <div className="text-center p-8 max-w-[400px]">
+                      <div className="text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-red-600 dark:text-red-400 mb-3">
+                        Error
+                      </div>
+                      <div className="text-sm text-[var(--foreground)] leading-relaxed mb-6">
+                        {processError}
+                      </div>
+                      <button
+                        onClick={handleBack}
+                        className="border border-[var(--border)] bg-transparent py-2.5 px-5 text-sm text-[var(--foreground)] cursor-pointer font-[inherit] flex items-center gap-2 mx-auto hover:bg-[var(--hover-bg)] transition-colors"
+                      >
+                        Back to History
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    onClick={handleBack}
-                    className="border border-[var(--border)] bg-transparent py-2.5 px-5 text-sm text-[var(--foreground)] cursor-pointer font-[inherit] flex items-center gap-2 mx-auto hover:bg-[var(--hover-bg)] transition-colors"
-                  >
-                    Back to History
-                  </button>
+                );
+              }
+              if (resultsData) {
+                return <ResultsViewWithDetail data={resultsData} onBack={handleBack} />;
+              }
+              return (
+                <div className="flex-1 flex items-center justify-center text-[var(--muted-foreground)]">
+                  No results to display
                 </div>
-              </div>
-            ) : resultsData ? (
-              <ResultsViewWithDetail data={resultsData} onBack={handleBack} />
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-[var(--muted-foreground)]">
-                No results to display
-              </div>
-            )
+              );
+            })()
           )}
         </div>
       </div>

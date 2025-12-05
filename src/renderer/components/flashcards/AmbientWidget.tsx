@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronRight, X, Minimize2, Maximize2 } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+
 import type { FlashcardData } from '../../../shared/types';
 
 interface AmbientWidgetProps {
@@ -167,8 +168,9 @@ export function AmbientWidget({ onClose }: AmbientWidgetProps) {
       </div>
 
       {/* Card content */}
-      <div
-        className="p-6 cursor-pointer select-none min-h-[140px] flex flex-col items-center justify-center space-y-3"
+      <button
+        type="button"
+        className="p-6 cursor-pointer select-none min-h-[140px] flex flex-col items-center justify-center space-y-3 w-full bg-transparent border-none text-left"
         onClick={() => setIsRevealed(!isRevealed)}
       >
         <div 
@@ -206,7 +208,7 @@ export function AmbientWidget({ onClose }: AmbientWidgetProps) {
             Click to reveal
           </div>
         )}
-      </div>
+      </button>
 
       {/* Actions */}
       <div 
@@ -236,6 +238,7 @@ export function AmbientWidget({ onClose }: AmbientWidgetProps) {
     </div>
   );
 }
+
 
 
 

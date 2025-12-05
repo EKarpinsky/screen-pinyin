@@ -1,8 +1,8 @@
-import React from 'react';
-import { colors } from './colors';
+
 import { ClickableChar } from './ClickableChar';
-import { isChineseChar } from './utils';
+import { colors } from './colors';
 import type { SentenceEntry } from './types';
+import { isChineseChar } from './utils';
 
 interface ExampleSentenceProps {
   sentence: SentenceEntry;
@@ -38,7 +38,7 @@ export function ExampleSentence({
 
       {/* Chinese sentence - centered, clickable, highlight the word */}
       <div className="font-['Microsoft_YaHei','PingFang_SC','Noto_Sans_SC',sans-serif] text-[1.4rem] leading-[1.8] text-center mb-4 tracking-wide text-[var(--foreground)]">
-        {sentence.s.split('').map((char, charIndex) => {
+        {[...sentence.s].map((char, charIndex) => {
           const isPartOfWord = highlightWord && wordStart !== -1 && 
             charIndex >= wordStart && 
             charIndex < wordStart + highlightWord.length;

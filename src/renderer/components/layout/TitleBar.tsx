@@ -1,5 +1,7 @@
-import React from 'react';
+
+
 import { cn } from '@utils';
+
 import { WindowControls } from './WindowControls';
 
 export function TitleBar() {
@@ -10,7 +12,7 @@ export function TitleBar() {
         "bg-[var(--sidebar)] border-b border-[var(--border)]",
         "shrink-0"
       )}
-      // @ts-ignore - webkit property for Electron drag
+      // @ts-expect-error - webkit property for Electron drag
       style={{ WebkitAppRegion: 'drag' }}
     >
       <WindowControls

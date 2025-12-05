@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { SelectionError } from './SelectionError';
-import { SelectionRectangle } from './SelectionRectangle';
-import { SelectionInstructions } from './SelectionInstructions';
+
 import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
+
+import { SelectionError } from './SelectionError';
+import { SelectionInstructions } from './SelectionInstructions';
+import { SelectionRectangle } from './SelectionRectangle';
 
 export function SelectionOverlay() {
   const [isDragging, setIsDragging] = useState(false);
@@ -37,9 +39,9 @@ export function SelectionOverlay() {
           return;
         }
         setScreenshotUrl(url);
-      } catch (err: any) {
+      } catch (err) {
         console.error('[SelectionOverlay] Screenshot error:', err);
-        setError('Screenshot error: ' + err.message);
+        setError('Screenshot error: ' + (err instanceof Error ? err.message : String(err)));
       }
     };
     
@@ -90,6 +92,7 @@ export function SelectionOverlay() {
   }
 
   return (
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- This is a canvas-like drawing area for mouse selection
     <div
       ref={overlayRef}
       onMouseDown={handleMouseDown}

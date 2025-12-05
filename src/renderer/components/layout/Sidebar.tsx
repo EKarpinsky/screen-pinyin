@@ -1,8 +1,11 @@
-import React from 'react';
 import { Clock, Search, BookOpen, Settings } from 'lucide-react';
+
+
 import { cn } from '@utils';
-import { NavButton } from './NavButton';
+
 import { LightbulbToggle } from '../lightbulb-toggle';
+
+import { NavButton } from './NavButton';
 import type { ViewType } from './types';
 
 interface SidebarProps {

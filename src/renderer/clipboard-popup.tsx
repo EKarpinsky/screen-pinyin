@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
+
 import { useKeyboardShortcut } from './hooks/useKeyboardShortcut';
 
 interface ClipboardData {

@@ -1,4 +1,5 @@
-import React from 'react';
+
+
 import { cn } from '@utils';
 
 interface LightbulbToggleProps {
@@ -28,7 +29,7 @@ export function LightbulbToggle({ isOn, onToggle, size = 24 }: LightbulbTogglePr
       type="button"
       title={isOn ? 'Switch to dark mode' : 'Switch to light mode'}
       aria-label={isOn ? 'Switch to dark mode' : 'Switch to light mode'}
-      // @ts-ignore - webkit property for Electron no-drag
+      // @ts-expect-error - webkit property for Electron no-drag
       style={{ WebkitAppRegion: 'no-drag' }}
     >
       <svg

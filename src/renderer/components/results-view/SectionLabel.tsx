@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 interface SectionLabelProps {
   children: ReactNode;
@@ -20,4 +20,5 @@ export function SectionLabel({ children, hint }: SectionLabelProps) {
     </div>
   );
 }
+
 

@@ -1,5 +1,7 @@
-import React from 'react';
+
+
 import { cn } from '@utils';
+
 import { SearchResultWrapper } from './SearchResultWrapper';
 import type { DictionaryEntry } from './types';
 

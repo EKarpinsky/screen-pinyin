@@ -1,9 +1,20 @@
-import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, BookOpen } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+
 import { cn } from '@utils';
+
 import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
+
 import type { FlashcardData, FlashcardIntervals, FlashcardReviewProps } from './types';
 import { Rating } from './types';
+
+function formatInterval(days: number): string {
+  if (days < 1) return '<1d';
+  if (days === 1) return '1d';
+  if (days < 30) return `${days}d`;
+  if (days < 365) return `${Math.floor(days / 30)}mo`;
+  return `${Math.floor(days / 365)}y`;
+}
 
 export function FlashcardReview({ onComplete, onBack }: FlashcardReviewProps) {
   const [cards, setCards] = useState<FlashcardData[]>([]);
@@ -84,22 +95,18 @@ export function FlashcardReview({ onComplete, onBack }: FlashcardReviewProps) {
       handleFlip();
     } else if (isFlipped) {
       switch (e.key) {
-        case '1': handleRating(Rating.Again); break;
-        case '2': handleRating(Rating.Hard); break;
-        case '3': handleRating(Rating.Good); break;
-        case '4': handleRating(Rating.Easy); break;
+        case '1': { handleRating(Rating.Again); break;
+        }
+        case '2': { handleRating(Rating.Hard); break;
+        }
+        case '3': { handleRating(Rating.Good); break;
+        }
+        case '4': { handleRating(Rating.Easy); break;
+        }
       }
     }
     if (e.key === 'Escape') onBack();
   }, { deps: [isFlipped, handleFlip, handleRating, onBack] });
-
-  const formatInterval = (days: number): string => {
-    if (days < 1) return '<1d';
-    if (days === 1) return '1d';
-    if (days < 30) return `${days}d`;
-    if (days < 365) return `${Math.floor(days / 30)}mo`;
-    return `${Math.floor(days / 365)}y`;
-  };
 
   if (loading) {
     return (
@@ -171,16 +178,7 @@ export function FlashcardReview({ onComplete, onBack }: FlashcardReviewProps) {
               "flex items-center justify-center transition-all group mb-8"
             )}
           >
-            {!isFlipped ? (
-              <div className="text-center">
-                <div className="chinese-text text-8xl font-bold text-[var(--foreground)] mb-6 leading-none">
-                  {currentCard.chinese}
-                </div>
-                <div className="text-[var(--muted-foreground)] text-base font-medium opacity-40 group-hover:opacity-100 transition-opacity">
-                  Click to reveal • Press Space
-                </div>
-              </div>
-            ) : (
+            {isFlipped ? (
               <div className="text-center w-full space-y-5">
                 <div className="chinese-text text-7xl font-bold text-[var(--foreground)] leading-none">
                   {currentCard.chinese}
@@ -194,17 +192,20 @@ export function FlashcardReview({ onComplete, onBack }: FlashcardReviewProps) {
                   {currentCard.english}
                 </div>
               </div>
+            ) : (
+              <div className="text-center">
+                <div className="chinese-text text-8xl font-bold text-[var(--foreground)] mb-6 leading-none">
+                  {currentCard.chinese}
+                </div>
+                <div className="text-[var(--muted-foreground)] text-base font-medium opacity-40 group-hover:opacity-100 transition-opacity">
+                  Click to reveal • Press Space
+                </div>
+              </div>
             )}
           </button>
 
           {/* Rating Section */}
-          {!isFlipped ? (
-            <div className="text-center py-4">
-              <p className="text-[var(--muted-foreground)] font-medium">
-                Reveal the answer to rate your recall
-              </p>
-            </div>
-          ) : (
+          {isFlipped ? (
             <div className="space-y-5">
               <div className="text-center">
                 <p className="text-sm text-[var(--muted-foreground)] font-medium mb-1">
@@ -249,6 +250,12 @@ export function FlashcardReview({ onComplete, onBack }: FlashcardReviewProps) {
               <div className="text-center text-xs text-[var(--muted-foreground)]/60 font-medium pt-2">
                 Keyboard: Press 1, 2, 3, or 4
               </div>
+            </div>
+          ) : (
+            <div className="text-center py-4">
+              <p className="text-[var(--muted-foreground)] font-medium">
+                Reveal the answer to rate your recall
+              </p>
             </div>
           )}
         </div>

@@ -5,12 +5,12 @@ import { vi } from 'vitest'
 Object.defineProperty(window, 'electronAPI', {
   value: {
     getHistory: vi.fn().mockResolvedValue([]),
-    deleteHistoryItem: vi.fn().mockResolvedValue(undefined),
-    clearHistory: vi.fn().mockResolvedValue(undefined),
-    showResultsWithData: vi.fn().mockResolvedValue(undefined),
+    deleteHistoryItem: vi.fn().mockResolvedValue(),
+    clearHistory: vi.fn().mockResolvedValue(),
+    showResultsWithData: vi.fn().mockResolvedValue(),
     // Add other API methods as needed
     getSettings: vi.fn().mockResolvedValue({ azureApiKey: '', azureRegion: 'eastus' }),
-    saveSettings: vi.fn().mockResolvedValue(undefined),
+    saveSettings: vi.fn().mockResolvedValue(),
     performOCR: vi.fn().mockResolvedValue({ success: true, text: '' }),
     translate: vi.fn().mockResolvedValue({ success: true, translation: '', pinyin: '' }),
     getCapturedImage: vi.fn().mockResolvedValue(null),

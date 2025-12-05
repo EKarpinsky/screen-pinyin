@@ -1,8 +1,9 @@
 import { clipboard } from 'electron';
+
 import { searchDictionary, isDictionaryReady } from './dictionary-db';
 
 // Chinese character detection regex
-const CHINESE_REGEX = /[\u4e00-\u9fff]/;
+const CHINESE_REGEX = /[\u4E00-\u9FFF]/;
 
 export interface ClipboardData {
   chinese: string;
@@ -31,7 +32,7 @@ function extractChineseText(text: string): string {
   }
   
   // Extract just Chinese characters for longer text
-  const chineseOnly = cleaned.match(/[\u4e00-\u9fff]+/g);
+  const chineseOnly = cleaned.match(/[\u4E00-\u9FFF]+/g);
   if (chineseOnly) {
     return chineseOnly[0].slice(0, 10); // Limit to first 10 chars
   }

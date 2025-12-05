@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { cn } from '@utils';
+
 import { ScrollArea } from '@components/ui/scroll-area';
-import { HistoryHeader } from './HistoryHeader';
-import { HistoryEmptyState } from './HistoryEmptyState';
+import { cn } from '@utils';
+
 import { HistoryCard } from './HistoryCard';
+import { HistoryEmptyState } from './HistoryEmptyState';
+import { HistoryHeader } from './HistoryHeader';
 import { HistoryItem } from './types';
 
 interface TranslationHistoryProps {
@@ -127,7 +129,7 @@ export function TranslationHistory({
       <ScrollArea className="flex-1">
         {isEmpty ? (
           <HistoryEmptyState />
-        ) : hasNoResults ? (
+        ) : (hasNoResults ? (
           <HistoryEmptyState searchQuery={searchQuery} />
         ) : (
           <div className="p-10 flex flex-col gap-6">
@@ -141,7 +143,7 @@ export function TranslationHistory({
               />
             ))}
           </div>
-        )}
+        ))}
       </ScrollArea>
     </div>
   );

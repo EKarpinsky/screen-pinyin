@@ -1,4 +1,5 @@
-import React from 'react';
+
+
 import { colors } from './colors';
 import type { CharacterData } from './types';
 
@@ -49,4 +50,5 @@ export function CharacterChip({
     </button>
   );
 }
+
 

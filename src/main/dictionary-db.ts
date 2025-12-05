@@ -1,9 +1,11 @@
-import Database from 'better-sqlite3';
-import path from 'path';
-import { app } from 'electron';
-import fs from 'fs';
+import fs from 'node:fs';
+import path from 'node:path';
 
-let db: Database.Database | null = null;
+import BetterSqlite3 from 'better-sqlite3';
+import { app } from 'electron';
+
+
+let db: BetterSqlite3.Database | null = null;
 
 /**
  * Initialize the dictionary database with FTS5 support.
@@ -16,7 +18,7 @@ export function initDictionaryDB(): void {
   // Check if database exists in userData
   if (fs.existsSync(dbPath)) {
     console.log('Loading dictionary database from:', dbPath);
-    db = new Database(dbPath, { readonly: true });
+    db = new BetterSqlite3(dbPath, { readonly: true });
   } else {
     // Try to find bundled database
     const bundledPath = path.join(__dirname, '..', '..', 'src', 'data', 'dictionary.db');
@@ -24,7 +26,7 @@ export function initDictionaryDB(): void {
       console.log('Loading bundled dictionary database from:', bundledPath);
       // Copy bundled database to userData for future use
       fs.copyFileSync(bundledPath, dbPath);
-      db = new Database(dbPath, { readonly: true });
+      db = new BetterSqlite3(dbPath, { readonly: true });
     } else {
       console.warn('No dictionary database found. Dictionary search will be unavailable.');
       return;
@@ -115,7 +117,7 @@ export function searchDictionary(query: string, limit = 10): DictionaryEntry[] {
         }
         
         // Big bonus: exact word match (not just substring)
-        const wordBoundaryRegex = new RegExp(`\\b${trimmedQuery}\\b`);
+        const wordBoundaryRegex = new RegExp(String.raw`\b${trimmedQuery}\b`);
         if (wordBoundaryRegex.test(defs)) {
           score += 500;
         }
@@ -222,8 +224,8 @@ function escapeQuery(query: string): string {
   // For simple queries, wrap in double quotes to treat as phrase
   // But for prefix search, we need to be careful
   return query
-    .replace(/"/g, '""')  // Escape double quotes
-    .replace(/[*]/g, '');  // Remove asterisks (we add our own for prefix)
+    .replaceAll('"', '""')  // Escape double quotes
+    .replaceAll(/[*]/g, '');  // Remove asterisks (we add our own for prefix)
 }
 
 /**

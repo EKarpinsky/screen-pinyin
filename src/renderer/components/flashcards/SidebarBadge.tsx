@@ -1,4 +1,4 @@
-import React from 'react';
+
 
 interface SidebarBadgeProps {
   count: number;
@@ -34,6 +34,7 @@ export function SidebarBadge({ count, variant = 'default' }: SidebarBadgeProps) 
     </span>
   );
 }
+
 
 
 

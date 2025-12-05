@@ -1,5 +1,5 @@
-import * as React from "react"
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area"
+import * as React from "react"
 
 // CSS for ScrollArea - injected once
 const scrollAreaStyles = `
@@ -68,7 +68,7 @@ function injectStyles() {
   if (stylesInjected || typeof document === 'undefined') return
   const style = document.createElement('style')
   style.textContent = scrollAreaStyles
-  document.head.appendChild(style)
+  document.head.append(style)
   stylesInjected = true
 }
 
@@ -108,5 +108,7 @@ export function ScrollArea({ children, style, className }: ScrollAreaProps) {
   )
 }
 
-export { ScrollAreaPrimitive as ScrollBar }
 
+
+
+export * as ScrollBar from "@radix-ui/react-scroll-area"

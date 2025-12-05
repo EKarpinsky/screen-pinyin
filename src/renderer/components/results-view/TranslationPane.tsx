@@ -1,6 +1,8 @@
-import React, { ReactNode } from 'react';
 import { Copy, Check, ArrowLeft, BookOpen, Plus } from 'lucide-react';
+import type { ReactNode } from 'react';
+
 import { ScrollArea } from '../ui/scroll-area';
+
 import { colors } from './colors';
 import type { ResultsData } from './types';
 
@@ -122,8 +124,8 @@ export function TranslationPane({
                     opacity: isInDeck && !addedToDeck ? 0.7 : 1,
                   }}
                 >
-                  {addedToDeck ? <Check size={16} /> : isInDeck ? <BookOpen size={16} /> : <Plus size={16} />}
-                  {addedToDeck ? 'Added to Deck!' : isInDeck ? 'Already in Deck' : 'Add to Flashcards'}
+                  {addedToDeck ? <Check size={16} /> : (isInDeck ? <BookOpen size={16} /> : <Plus size={16} />)}
+                  {addedToDeck ? 'Added to Deck!' : (isInDeck ? 'Already in Deck' : 'Add to Flashcards')}
                 </button>
               </div>
             )}
@@ -133,4 +135,5 @@ export function TranslationPane({
     </div>
   );
 }
+
 

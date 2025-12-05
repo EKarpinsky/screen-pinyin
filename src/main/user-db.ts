@@ -1,8 +1,9 @@
-import Database from 'better-sqlite3';
-import path from 'path';
+import path from 'node:path';
+
+import BetterSqlite3 from 'better-sqlite3';
 import { app } from 'electron';
 
-let db: Database.Database | null = null;
+let db: BetterSqlite3.Database | null = null;
 
 /**
  * Flashcard data stored in SQLite with FSRS scheduling fields.
@@ -34,7 +35,7 @@ export function initUserDB(): void {
   const dbPath = path.join(userDataPath, 'user-data.db');
 
   console.log('Initializing user database at:', dbPath);
-  db = new Database(dbPath);
+  db = new BetterSqlite3(dbPath);
 
   // Enable WAL mode for better performance
   db.pragma('journal_mode = WAL');
@@ -95,7 +96,7 @@ export function addFlashcard(data: {
     return null;
   }
 
-  const id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
   const now = new Date().toISOString();
 
   try {
@@ -381,9 +382,9 @@ export function getStreakStats(): {
   totalMastered: number;
   lastReviewDate: string | null;
 } {
-  const currentStreak = parseInt(getStat('current_streak') || '0', 10);
-  const longestStreak = parseInt(getStat('longest_streak') || '0', 10);
-  const totalMastered = parseInt(getStat('total_mastered') || '0', 10);
+  const currentStreak = Number.parseInt(getStat('current_streak') || '0', 10);
+  const longestStreak = Number.parseInt(getStat('longest_streak') || '0', 10);
+  const totalMastered = Number.parseInt(getStat('total_mastered') || '0', 10);
   const lastReviewDate = getStat('last_review_date');
   
   return { currentStreak, longestStreak, totalMastered, lastReviewDate };
@@ -400,8 +401,8 @@ export function updateStreakAfterReview(): {
 } {
   const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
   const lastReviewDate = getStat('last_review_date');
-  let currentStreak = parseInt(getStat('current_streak') || '0', 10);
-  let longestStreak = parseInt(getStat('longest_streak') || '0', 10);
+  let currentStreak = Number.parseInt(getStat('current_streak') || '0', 10);
+  let longestStreak = Number.parseInt(getStat('longest_streak') || '0', 10);
   let streakIncremented = false;
 
   if (lastReviewDate === today) {
@@ -417,12 +418,12 @@ export function updateStreakAfterReview(): {
     // Reviewed yesterday, increment streak
     currentStreak += 1;
     streakIncremented = true;
-  } else if (!lastReviewDate) {
-    // First review ever
+  } else if (lastReviewDate) {
+    // Missed a day, reset streak
     currentStreak = 1;
     streakIncremented = true;
   } else {
-    // Missed a day, reset streak
+    // First review ever
     currentStreak = 1;
     streakIncremented = true;
   }
@@ -444,7 +445,7 @@ export function updateStreakAfterReview(): {
  * Called when a card reaches a certain stability threshold.
  */
 export function incrementMastered(): number {
-  const current = parseInt(getStat('total_mastered') || '0', 10);
+  const current = Number.parseInt(getStat('total_mastered') || '0', 10);
   const newTotal = current + 1;
   setStat('total_mastered', newTotal.toString());
   return newTotal;

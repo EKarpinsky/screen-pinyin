@@ -1,13 +1,16 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, screen, Tray, Menu, nativeImage, Notification } from 'electron';
-import schedule from 'node-schedule';
-import Store from 'electron-store';
-import { captureScreen, cropImage } from './capture';
-import { createWorker, Worker } from 'tesseract.js';
 import axios from 'axios';
+import { app, BrowserWindow, globalShortcut, ipcMain, screen, Tray, Menu, nativeImage, Notification } from 'electron';
+import Store from 'electron-store';
+import { scheduleJob } from 'node-schedule';
 import nodejieba from 'nodejieba';
-import { initDictionaryDB, searchDictionary, getEntry, getEntries, closeDictionaryDB, isDictionaryReady } from './dictionary-db';
-import { triggerClipboardLookup, ClipboardData } from './clipboard-monitor';
+import { createWorker, Worker } from 'tesseract.js';
+import { fsrs, Rating, State, Card, Grade } from 'ts-fsrs';
+
 import { filterDefinitions } from '../shared/definition-utils';
+
+import { captureScreen, cropImage } from './capture';
+import { triggerClipboardLookup, ClipboardData } from './clipboard-monitor';
+import { initDictionaryDB, searchDictionary, getEntry, getEntries, closeDictionaryDB, isDictionaryReady } from './dictionary-db';
 import {
   initUserDB,
   closeUserDB,
@@ -19,7 +22,6 @@ import {
   deleteFlashcard,
   flashcardExists,
   getFlashcardStats,
-  FlashcardData,
   // Stats and settings
   getStreakStats,
   updateStreakAfterReview,
@@ -32,7 +34,7 @@ import {
   setNotificationTimes,
   getFlashcardByChinese,
 } from './user-db';
-import { createEmptyCard, fsrs, Rating, State, Card, Grade } from 'ts-fsrs';
+
 
 // Handle Squirrel events for Windows installer
 if (require('electron-squirrel-startup')) {
@@ -66,16 +68,16 @@ let notificationJobs: schedule.Job[] = [];
 // Set up scheduled notifications based on user settings
 const setupNotificationScheduler = () => {
   // Cancel existing jobs
-  notificationJobs.forEach(job => job.cancel());
+  for (const job of notificationJobs) job.cancel();
   notificationJobs = [];
 
   // Get notification times from settings
   const times = getNotificationTimes();
   console.log('Setting up notification scheduler for times:', times);
 
-  times.forEach(hour => {
+  for (const hour of times) {
     // Schedule job for each hour
-    const job = schedule.scheduleJob({ hour, minute: 0 }, async () => {
+    const job = scheduleJob({ hour, minute: 0 }, async () => {
       const dueCards = getDueFlashcards();
       if (dueCards.length > 0 && Notification.isSupported()) {
         const notification = new Notification({
@@ -98,7 +100,7 @@ const setupNotificationScheduler = () => {
 
     notificationJobs.push(job);
     console.log(`Scheduled notification job for ${hour}:00`);
-  });
+  }
 };
 
 // Store screenshot buffer for cropping
@@ -361,7 +363,7 @@ const registerPopupHotkey = (): void => {
   if (popupHotkeyRegistered) return;
   
   const { clipboard } = require('electron');
-  const { exec } = require('child_process');
+  const { exec } = require('node:child_process');
   
   const success = globalShortcut.register(POPUP_HOTKEY, async () => {
     console.log('Popup hotkey triggered');
@@ -564,7 +566,7 @@ const setupIpcHandlers = (): void => {
         // Still save to history
         const history = store.get('translationHistory', []) as HistoryItem[];
         const newItem: HistoryItem = {
-          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
           chinese: text,
           pinyin,
           english: translation,
@@ -626,7 +628,7 @@ const setupIpcHandlers = (): void => {
       // Auto-save to history
       const history = store.get('translationHistory', []) as HistoryItem[];
       const newItem: HistoryItem = {
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
         chinese: text,
         pinyin,
         english: translation,
@@ -668,7 +670,7 @@ const setupIpcHandlers = (): void => {
   ipcMain.handle('add-to-history', (_event, item: Omit<HistoryItem, 'id' | 'timestamp'>) => {
     const history = store.get('translationHistory', []) as HistoryItem[];
     const newItem: HistoryItem = {
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       chinese: item.chinese,
       pinyin: item.pinyin,
       english: item.english,
@@ -772,9 +774,9 @@ const setupIpcHandlers = (): void => {
     const entriesMap = getEntries(simplifiedList);
     // Convert Map to plain object for IPC serialization
     const result: Record<string, unknown> = {};
-    entriesMap.forEach((value, key) => {
+    for (const [key, value] of entriesMap.entries()) {
       result[key] = value;
-    });
+    }
     return result;
   });
 
@@ -1083,7 +1085,7 @@ app.on('will-quit', () => {
     ocrWorker.terminate();
   }
   // Cancel scheduled notifications
-  notificationJobs.forEach(job => job.cancel());
+  for (const job of notificationJobs) job.cancel();
   notificationJobs = [];
   // Close databases
   closeDictionaryDB();

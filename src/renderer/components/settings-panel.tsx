@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
 import { Check, Eye, EyeOff } from 'lucide-react';
+import { useState, useEffect } from 'react';
+
 import { cn } from '@utils';
+
 import { ScrollArea } from './ui/scroll-area';
 
 const AZURE_REGIONS = [
@@ -82,11 +84,12 @@ export function SettingsPanel() {
         <div className="flex flex-col gap-5 max-w-[480px]">
           {/* API Key */}
           <div>
-            <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
+            <label htmlFor="azure-api-key" className="block text-sm font-medium text-[var(--foreground)] mb-2">
               Azure API Key
             </label>
             <div className="relative">
               <input
+                id="azure-api-key"
                 type={showApiKey ? 'text' : 'password'}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
@@ -119,10 +122,11 @@ export function SettingsPanel() {
 
           {/* Region */}
           <div>
-            <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
+            <label htmlFor="azure-region" className="block text-sm font-medium text-[var(--foreground)] mb-2">
               Azure Region
             </label>
             <select
+              id="azure-region"
               value={region}
               onChange={(e) => setRegion(e.target.value)}
               className={cn(

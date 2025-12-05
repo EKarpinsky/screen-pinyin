@@ -1,5 +1,6 @@
-import React from 'react';
 import { ArrowRight } from 'lucide-react';
+
+
 import { cn } from '@utils';
 
 interface TranslateActionProps {
@@ -18,15 +19,16 @@ export function TranslateAction({
   onClick,
 }: TranslateActionProps) {
   return (
-    <div
+    <button
+      type="button"
       onClick={onClick}
       className={cn(
-        "cursor-pointer border-b border-[var(--border)]",
+        "w-full text-left cursor-pointer bg-transparent",
         "py-5 px-7 transition-colors duration-150",
         "animate-[slideUp_0.3s_ease-out_backwards]",
         isSelected ? "bg-[var(--hover-bg)]" : "hover:bg-[var(--hover-bg)]"
       )}
-      style={{ animationDelay: `${animationDelay}s` }}
+      style={{ animationDelay: `${animationDelay}s`, border: 'none', borderBottom: '1px solid var(--border)' }}
     >
       <div className="flex items-center justify-between">
         <div>
@@ -41,7 +43,7 @@ export function TranslateAction({
         </div>
         <ArrowRight size={20} className="text-[var(--primary)]" />
       </div>
-    </div>
+    </button>
   );
 }
 

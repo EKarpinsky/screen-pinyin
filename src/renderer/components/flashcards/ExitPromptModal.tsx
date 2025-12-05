@@ -1,5 +1,5 @@
-import React from 'react';
 import { BookOpen, Clock, X } from 'lucide-react';
+
 
 interface ExitPromptModalProps {
   open: boolean;
@@ -24,9 +24,11 @@ export function ExitPromptModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+      <button 
+        type="button"
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm border-none cursor-default"
         onClick={onClose}
+        aria-label="Close modal"
       />
       
       {/* Modal */}
@@ -115,6 +117,7 @@ export function ExitPromptModal({
     </div>
   );
 }
+
 
 
 
