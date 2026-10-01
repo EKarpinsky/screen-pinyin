@@ -9,7 +9,7 @@ Use Node 22 and the normal README build prerequisites, plus these capture tools:
 
 ```sh
 df -h / # stop if less than 3 GB is free
-sudo apt-get install xvfb xauth imagemagick xdotool ffmpeg fonts-wqy-zenhei
+sudo apt-get install xvfb xauth x11-xserver-utils imagemagick xdotool ffmpeg fonts-wqy-zenhei
 npm ci
 npm run package
 ```

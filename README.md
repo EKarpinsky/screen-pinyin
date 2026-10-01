@@ -33,8 +33,9 @@ Xcode Command Line Tools on macOS, or these packages on Debian/Ubuntu:
 sudo apt-get install build-essential python3 libx11-dev libxtst-dev libpng-dev
 ```
 
-Linux screen capture needs an X11 desktop and ImageMagick (`sudo apt-get install
-imagemagick`). On macOS, allow Screen Recording and Accessibility when prompted.
+Linux screen capture needs an X11 desktop, ImageMagick and `xrandr` (`sudo apt-get
+install imagemagick x11-xserver-utils`). On macOS, allow Screen Recording and
+Accessibility when prompted.
 
 ```sh
 git clone https://github.com/EKarpinsky/screen-pinyin.git
