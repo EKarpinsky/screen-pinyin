@@ -1,6 +1,4 @@
-// IMPORTANT: NO TypeScript interfaces or exports in this file!
-// They cause Electron sandbox crashes. See TROUBLESHOOTING.md
-// Keep type annotations minimal - they're compiled away but can cause issues.
+// Sandboxed preload runs as a plain script: use require() and no top-level import/export.
 
 const { contextBridge, ipcRenderer } = require('electron');
 
