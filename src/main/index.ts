@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { app, BrowserWindow, globalShortcut, ipcMain, screen, Tray, Menu, nativeImage, Notification } from 'electron';
 import Store from 'electron-store';
-import { scheduleJob } from 'node-schedule';
+import { scheduleJob, type Job } from 'node-schedule';
 import nodejieba from 'nodejieba';
 import { createWorker, Worker } from 'tesseract.js';
 import { fsrs, Rating, State, Card, Grade } from 'ts-fsrs';
@@ -63,7 +63,7 @@ let isQuitting = false;
 let exitPromptShown = false;
 
 // Scheduled notification jobs
-let notificationJobs: schedule.Job[] = [];
+let notificationJobs: Job[] = [];
 
 // Set up scheduled notifications based on user settings
 const setupNotificationScheduler = () => {
@@ -129,7 +129,7 @@ const initOCRWorker = async (): Promise<void> => {
   }
 };
 
-const createMainWindow = (): void => {
+const createMainWindow = (): BrowserWindow => {
   mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
@@ -177,6 +177,8 @@ const createMainWindow = (): void => {
       }
     }
   });
+
+  return mainWindow;
 };
 
 const createOverlayWindow = async (): Promise<void> => {
@@ -225,8 +227,10 @@ const createOverlayWindow = async (): Promise<void> => {
   overlayWindow.setAlwaysOnTop(true, 'screen-saver');
   overlayWindow.focus();
 
-  // Enable DevTools for overlay debugging
-  overlayWindow.webContents.openDevTools({ mode: 'detach' });
+  // Open DevTools in development
+  if (!app.isPackaged) {
+    overlayWindow.webContents.openDevTools({ mode: 'detach' });
+  }
 
   overlayWindow.on('closed', () => {
     overlayWindow = null;
@@ -308,14 +312,9 @@ const hideClipboardPopup = (): void => {
 };
 
 const showMainWindow = (): void => {
-  if (mainWindow) {
-    mainWindow.show();
-    mainWindow.focus();
-  } else {
-    createMainWindow();
-    mainWindow?.show();
-    mainWindow?.focus();
-  }
+  const window = mainWindow ?? createMainWindow();
+  window.show();
+  window.focus();
 };
 
 const createTray = (): void => {
@@ -378,7 +377,7 @@ const registerPopupHotkey = (): void => {
     await new Promise<void>((resolve, reject) => {
       exec(
         'powershell -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait(\'^c\')"',
-        (error) => {
+        (error: Error | null) => {
           if (error) {
             console.error('SendKeys error:', error);
             reject(error);
@@ -1029,7 +1028,7 @@ app.whenReady().then(async () => {
   }
 
   // Initialize store
-  store = new Store({
+  store = new Store<Record<string, unknown>>({
     name: 'screen-pinyin-config',
     defaults: {
       azureApiKey: '',

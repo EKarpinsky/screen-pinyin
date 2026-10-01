@@ -30,6 +30,9 @@ npm-debug.log*
 # Temporary files
 *.tmp
 *.temp
+*.db-shm
+*.db-wal
+/dependency-report.html
 
 # Downloaded dictionary source (keep the processed JSON)
 src/data/dictionary.txt

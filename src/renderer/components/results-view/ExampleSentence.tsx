@@ -39,9 +39,9 @@ export function ExampleSentence({
       {/* Chinese sentence - centered, clickable, highlight the word */}
       <div className="font-['Microsoft_YaHei','PingFang_SC','Noto_Sans_SC',sans-serif] text-[1.4rem] leading-[1.8] text-center mb-4 tracking-wide text-[var(--foreground)]">
         {[...sentence.s].map((char, charIndex) => {
-          const isPartOfWord = highlightWord && wordStart !== -1 && 
-            charIndex >= wordStart && 
-            charIndex < wordStart + highlightWord.length;
+          const isPartOfWord = Boolean(highlightWord && wordStart !== -1 &&
+            charIndex >= wordStart &&
+            charIndex < wordStart + highlightWord.length);
           const isChinese = isChineseChar(char);
 
           if (!isChinese) {
@@ -107,4 +107,3 @@ export function ExampleSentence({
     </div>
   );
 }
-

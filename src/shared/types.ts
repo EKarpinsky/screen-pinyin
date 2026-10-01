@@ -53,8 +53,8 @@ export interface ElectronAPI {
   // Clipboard popup
   hideClipboardPopup: () => Promise<void>;
   openInApp: (chinese: string) => Promise<void>;
-  onClipboardData: (callback: (event: unknown, data: unknown) => void) => void;
-  offClipboardData: (callback: (event: unknown, data: unknown) => void) => void;
+  onClipboardData: (callback: (event: unknown, data: { chinese: string; pinyin: string; english: string }) => void) => void;
+  offClipboardData: (callback: (event: unknown, data: { chinese: string; pinyin: string; english: string }) => void) => void;
 
   // Lookup text event
   onLookupText: (callback: (event: unknown, chinese: string) => void) => void;

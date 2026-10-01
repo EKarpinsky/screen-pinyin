@@ -4,7 +4,7 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
-const electronAPI = {
+const electronAPI: import('./shared/types').ElectronAPI = {
   // Screenshot and capture
   getScreenshot: function() { return ipcRenderer.invoke('get-screenshot'); },
   getCapturedImage: function() { return ipcRenderer.invoke('get-captured-image'); },

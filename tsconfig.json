@@ -22,7 +22,6 @@
       "@components/*": ["./src/renderer/components/*"]
     }
   },
-  "include": ["src/**/*", "config/**/*"],
+  "include": ["src/**/*", "config/**/*", "test/**/*"],
   "exclude": ["node_modules", "dist"]
 }
-

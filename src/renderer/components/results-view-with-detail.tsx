@@ -787,7 +787,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
       // Go back in detail history
       const prev = detailHistory.at(-1);
       setDetailHistory(detailHistory.slice(0, -1));
-      setSelectedDetail(prev);
+      setSelectedDetail(prev ?? null);
     } else if (isLookupMode) {
       // In lookup mode, ESC goes back to previous view
       onBack();
@@ -883,7 +883,7 @@ export function ResultsViewWithDetail({ data, onBack, onCopyAll }: ResultsViewWi
     if (detailHistory.length > 0) {
       const prev = detailHistory.at(-1);
       setDetailHistory(detailHistory.slice(0, -1));
-      setSelectedDetail(prev);
+      setSelectedDetail(prev ?? null);
       setActiveTab('overview');
       setCurrentExampleIndex(0);
     } else {
