@@ -32,3 +32,21 @@ https://www.apache.org/licenses/LICENSE-2.0
 
 The model is distributed without modifications. A copy of the Apache 2.0
 license is included in licenses/Apache-2.0.txt.
+
+Example sentences
+-----------------
+The generated sentences-dictionary.json uses the dataset by Mani at:
+https://github.com/krmanik/Chinese-Example-Sentences
+
+The upstream project credits Tatoeba contributors for the Chinese sentences,
+pinyin_jyutping_sentence and hanziconv for generated readings/conversions,
+and Google Sheets for machine-generated English translations. ScreenPinyin
+indexes that data by character and keeps up to five sentences per character.
+
+Tatoeba's default text license is CC BY 2.0 France:
+https://creativecommons.org/licenses/by/2.0/fr/
+https://tatoeba.org/en/terms_of_use
+
+The mirror does not include per-sentence authors or an explicit license for
+its generated additions. Verify that provenance before public distribution
+of packaged example-sentence data; this notice does not grant extra rights.
