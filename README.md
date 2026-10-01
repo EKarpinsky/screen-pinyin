@@ -21,7 +21,6 @@ Pinyin for 电脑 (computer) and definitions for 电 (electricity).
 ![Selecting Chinese text and opening its dictionary result](docs/demo.gif)
 
 Select a screen region, read the result, and open a character's definition.
-[Capture instructions](scripts/capture/README.md).
 
 ## Setup
 
