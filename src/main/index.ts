@@ -151,7 +151,9 @@ const createMainWindow = (): void => {
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
 
   // Open DevTools in development
-  mainWindow.webContents.openDevTools({ mode: 'detach' });
+  if (!app.isPackaged) {
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
+  }
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -1014,6 +1016,18 @@ const setupIpcHandlers = (): void => {
 
 // App lifecycle
 app.whenReady().then(async () => {
+  if (app.isPackaged) {
+    // Jieba opens these files from C++, which cannot read Electron's ASAR archive.
+    const unpackedPath = (file: string) => file.replace(app.getAppPath(), `${app.getAppPath()}.unpacked`);
+    nodejieba.load({
+      dict: unpackedPath(nodejieba.DEFAULT_DICT),
+      hmmDict: unpackedPath(nodejieba.DEFAULT_HMM_DICT),
+      userDict: unpackedPath(nodejieba.DEFAULT_USER_DICT),
+      idfDict: unpackedPath(nodejieba.DEFAULT_IDF_DICT),
+      stopWordDict: unpackedPath(nodejieba.DEFAULT_STOP_WORD_DICT),
+    });
+  }
+
   // Initialize store
   store = new Store({
     name: 'screen-pinyin-config',

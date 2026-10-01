@@ -19,6 +19,12 @@ function download(url) {
         return download(res.headers.location).then(resolve).catch(reject);
       }
       
+      if (res.statusCode !== 200) {
+        res.resume();
+        reject(new Error(`HTTP ${res.statusCode}: ${res.statusMessage}`));
+        return;
+      }
+
       let data = '';
       res.setEncoding('utf8');
       res.on('data', chunk => {
@@ -70,6 +76,10 @@ function parseTSV(rawData) {
     }
   }
   
+  if (sentences.length === 0) {
+    throw new Error('No valid example sentences in the downloaded data');
+  }
+
   console.log(`Parsed ${sentences.length} valid sentences`);
   return sentences;
 }
