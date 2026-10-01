@@ -1,0 +1,34 @@
+ScreenPinyin Translator
+Copyright (c) 2026 Eli Karpinsky
+
+The application code is licensed under the MIT License in LICENSE.
+The bundled third-party data below retains its separate license.
+
+CC-CEDICT dictionary
+-------------------
+src/data/dictionary.db contains data from CC-CEDICT, maintained by the
+CC-CEDICT contributors and distributed by MDBG:
+https://www.mdbg.net/chinese/dictionary?page=cc-cedict
+
+The SQLite builder uses the cedict-json conversion by Mani (Infinyte7):
+https://github.com/krmanik/cedict-json
+
+Both the dictionary data and that JSON conversion are licensed under the
+Creative Commons Attribution-ShareAlike 4.0 International License:
+https://creativecommons.org/licenses/by-sa/4.0/
+
+ScreenPinyin converts numbered pinyin to tone marks, combines definitions,
+and stores the entries in a SQLite FTS5 index. These adapted dictionary
+data remain under CC BY-SA 4.0; the application's MIT license does not
+replace that license. No endorsement by the contributors is implied.
+
+Tesseract Simplified Chinese recognition data
+--------------------------------------------
+chi_sim.traineddata is Simplified Chinese recognition data for Tesseract.
+Credit: the Tesseract OCR project and its contributors.
+Source: https://github.com/tesseract-ocr/tessdata
+License: Apache License, Version 2.0:
+https://www.apache.org/licenses/LICENSE-2.0
+
+The model is distributed without modifications. A copy of the Apache 2.0
+license is included in licenses/Apache-2.0.txt.
