@@ -1,4 +1,6 @@
-/* Minimal CSS for overlay - no Tailwind to avoid conflicts */
+@import "tailwindcss";
+
+/* SelectionOverlay uses Tailwind utilities; keep the Electron surface transparent. */
 * {
   margin: 0;
   padding: 0;
@@ -16,4 +18,3 @@ html, body, #root {
   from { opacity: 0; }
   to { opacity: 1; }
 }
-

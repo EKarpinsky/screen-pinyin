@@ -5,7 +5,17 @@ meanings. ScreenPinyin is a desktop app built with Electron, React and
 TypeScript. It combines Tesseract OCR, local CC-CEDICT dictionary search,
 word segmentation, translation history and flashcard review.
 
-Screenshot: [`docs/screenshot.png`](docs/screenshot.png) (demo asset pending).
+![OCR results for 电脑 with pinyin, word meaning and per-character definitions](docs/screenshot.png)
+
+The screenshot shows local OCR of [this sample image](docs/sample.png), followed
+by the CC-CEDICT result for 电脑 (diàn nǎo, computer). No Azure key is used.
+
+![Select a screen region, see OCR results, and open a character detail panel](docs/demo.gif)
+
+The 12-second recording runs the Linux Electron app under Xvfb at 1440 by 900.
+It shows region selection, the local dictionary result, and details for 电.
+This is a desktop demo, not a hosted web or mobile app. See the
+[repeatable capture commands](scripts/capture/README.md) to regenerate the assets.
 
 ## Run locally
 
