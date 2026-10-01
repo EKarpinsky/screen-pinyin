@@ -14,8 +14,8 @@ npm ci
 npm run package
 ```
 
-Set `CAPTURE_SCRATCH_DIR` to a writable temporary directory. Paperclip runs use
-their existing `PAPERCLIP_RUN_SCRATCH_DIR` automatically. Then run:
+Temporary files use the system temporary directory. Set `CAPTURE_SCRATCH_DIR`
+to use a different writable directory. Then run:
 
 ```sh
 xvfb-run -a -s '-screen 0 1440x900x24' node scripts/capture/demo.mjs \
@@ -32,8 +32,7 @@ The sample is 电脑 (diàn nǎo, computer). The entire phrase has a local
 CC-CEDICT entry, so no Azure key is used. This demo does not demonstrate
 full-sentence Azure translation. Tesseract may download its language data on
 first run. The script waits for initialization before recording and uses a
-fresh disposable profile. It closes the overlay's detached DevTools window,
-which the application currently opens automatically.
+fresh disposable profile.
 
 Additional command arguments are passed to Electron. The isolated capture host
 used `--no-sandbox --disable-gpu`, matching its packaged-app smoke check, because
