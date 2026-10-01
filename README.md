@@ -39,6 +39,22 @@ npm ci
 npm start
 ```
 
+On Ubuntu 23.10+ (including 24.04), AppArmor can restrict unprivileged user
+namespaces, causing a Chromium SUID sandbox error at startup.
+For local development, run:
+
+```sh
+npm start -- -- --no-sandbox
+```
+
+`--no-sandbox` disables Chromium's process sandbox, reducing protection if the
+app is compromised. To keep the sandbox enabled, fix the helper after installing
+dependencies, then use `npm start`:
+
+```sh
+sudo chown root:root node_modules/electron/dist/chrome-sandbox && sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+```
+
 The first install compiles native modules and can take several minutes.
 The SQLite database is included. `npm ci` also downloads and generates the
 JSON dictionary fallback and example sentences used by the renderer, so setup
@@ -94,10 +110,16 @@ preload debugging.
 
 The packaged-app smoke check starts a temporary profile and checks the
 renderer, preload, dictionary lookup, native segmentation and flashcard DB.
-On a Linux desktop, run (use `xvfb-run -a` before `node` on a headless host):
+On a Linux desktop, run with the local sandbox workaround described above:
 
 ```sh
-node scripts/smoke-package.mjs "out/ScreenPinyin Translator-linux-x64/ScreenPinyin Translator"
+node scripts/smoke-package.mjs "out/ScreenPinyin Translator-linux-x64/ScreenPinyin Translator" --no-sandbox
+```
+
+On a headless Linux host, use Xvfb:
+
+```sh
+xvfb-run -a node scripts/smoke-package.mjs "out/ScreenPinyin Translator-linux-x64/ScreenPinyin Translator" --no-sandbox
 ```
 
 ## Dictionary data
