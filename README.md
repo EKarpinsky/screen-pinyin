@@ -25,7 +25,7 @@ Select a screen region, read the result, and open a character's definition.
 
 ## Setup
 
-Use Node.js 22, npm 10, Git, and at least 3 GB of free space. Native modules need
+Use Node.js 22, npm 10 and Git. Native modules need
 Python 3 and a C++ compiler: Visual Studio's C++ build tools on Windows,
 Xcode Command Line Tools on macOS, or these packages on Debian/Ubuntu:
 
