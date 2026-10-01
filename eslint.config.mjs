@@ -15,6 +15,7 @@ export default tseslint.config(
   {
     ignores: [
       'dist/**',
+      'out/**',
       '.webpack/**',
       'node_modules/**',
       '*.config.ts',
@@ -44,6 +45,10 @@ export default tseslint.config(
     files: ['**/*.{jsx,tsx}'],
     ...reactPlugin.configs.flat.recommended,
     ...reactPlugin.configs.flat['jsx-runtime'],
+    rules: {
+      ...reactPlugin.configs.flat['jsx-runtime'].rules,
+      'react/jsx-no-undef': 'error',
+    },
     settings: {
       react: {
         version: 'detect',

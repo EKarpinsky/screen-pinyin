@@ -48,6 +48,12 @@ async function downloadCedict() {
 }
 
 function handleResponse(response, resolve, reject) {
+  if (response.statusCode !== 200) {
+    response.resume();
+    reject(new Error(`HTTP ${response.statusCode}: ${response.statusMessage}`));
+    return;
+  }
+
   const gunzip = zlib.createGunzip();
   const fileStream = fs.createWriteStream(TEMP_FILE);
   
@@ -195,6 +201,10 @@ async function parseCedict() {
     }
   }
   
+  if (entryCount === 0) {
+    throw new Error('No valid CC-CEDICT entries in the downloaded data');
+  }
+
   console.log(`Processed ${lineCount} lines, found ${entryCount} unique entries.`);
   return dictionary;
 }

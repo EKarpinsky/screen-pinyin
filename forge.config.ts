@@ -13,9 +13,19 @@ import { rendererConfig } from './webpack.renderer.config';
 
 const config: ForgeConfig = {
   packagerConfig: {
-    asar: true,
+    asar: {
+      // Shared libraries and C++ dictionary reads need real filesystem paths.
+      unpack: '**/node_modules/{@img,nodejieba}/**/*',
+    },
     name: 'ScreenPinyin Translator',
-    icon: './assets/icon',
+    // Keep runtime externals and data alongside the Webpack output.
+    // The Webpack plugin otherwise excludes everything outside .webpack.
+    ignore: (file: string) => {
+      if (!file) return false;
+      const normalized = file.replaceAll('\\', '/');
+      return !(/^\/(?:\.webpack|node_modules|src\/data|licenses)(?:\/|$)/.test(normalized)
+        || /^\/(?:src|LICENSE|NOTICE|chi_sim\.traineddata)$/.test(normalized));
+    },
   },
   rebuildConfig: {},
   makers: [
