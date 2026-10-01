@@ -231,7 +231,7 @@ export function CharacterDetailPanel({ data, isOpen, onClose }: CharacterDetailP
     if (history.length > 0) {
       const prev = history.at(-1)
       setHistory(h => h.slice(0, -1))
-      setCurrentData(prev)
+      setCurrentData(prev ?? null)
     }
   }, [history])
 

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { spawn, execFileSync } from 'node:child_process';
 import { once } from 'node:events';
 import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
@@ -10,8 +11,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 const executable = process.argv[2];
 assert.ok(executable, 'Usage: node scripts/capture/demo.mjs <packaged-executable>');
 assert.ok(process.env.DISPLAY, 'Run under xvfb-run -a -s "-screen 0 1440x900x24"');
-const scratchRoot = process.env.PAPERCLIP_RUN_SCRATCH_DIR || process.env.PAPERCLIP_SCRATCH_DIR || process.env.CAPTURE_SCRATCH_DIR;
-assert.ok(scratchRoot, 'Set CAPTURE_SCRATCH_DIR to a temporary working directory');
+const scratchRoot = process.env.CAPTURE_SCRATCH_DIR || tmpdir();
 await mkdir(scratchRoot, { recursive: true });
 await mkdir('docs', { recursive: true });
 const scratch = await mkdtemp(path.join(scratchRoot, 'screen-pinyin-capture-'));
@@ -132,7 +132,6 @@ try {
   await until(() => output.includes('OCR worker ready'), 'OCR initialization');
   assert.ok(!await main.evaluate('window.electronAPI.getStoreValue("azureApiKey")'), 'Profile must have no Azure key');
   console.log('PASS: packaged Electron renderer and OCR worker started under Xvfb; Azure key absent');
-  const browser = await connect(endpoint);
   const nativeId = run('xdotool', ['search', '--onlyvisible', '--pid', String(child.pid)]).trim().split('\n')[0];
   assert.ok(nativeId, 'Could not find main X11 window');
   run('xdotool', ['windowmove', nativeId, '0', '0', 'windowsize', nativeId, '1440', '900']);
@@ -151,10 +150,9 @@ try {
   assert.equal(overlaySize.height, overlaySize.viewportHeight, 'Selection overlay must cover the viewport height');
   assert.ok(overlaySize.width >= 1439 && overlaySize.height >= 899, 'Selection window must fill the Xvfb desktop');
   console.log(`PASS: selection overlay covers the desktop: ${JSON.stringify(overlaySize)}`);
-  // The app currently opens detached DevTools for the overlay. Close that tool window as a user would.
-  for (const devtools of (await targets()).filter(t => t.url.startsWith('devtools://'))) {
-    await browser.call('Target.closeTarget', { targetId: devtools.id });
-  }
+  assert.ok(!(await targets()).some(t => t.url.startsWith('devtools://')),
+    'Packaged capture must not open DevTools');
+  console.log('PASS: packaged capture opens no DevTools window');
   const video = path.join(scratch, 'capture.mkv');
   const recordingStarted = Date.now();
   recording = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'x11grab', '-video_size', '1440x900',
@@ -181,10 +179,10 @@ try {
   await delay(800);
   await clickPoint(main, { x: 1350, y: 820 });
   await delay(200);
-  run('import', ['-window', 'root', 'docs/screenshot.png']);
   await clickText(main, '电');
   await until(() => main.evaluate('/character/i.test(document.body.innerText)'), 'character detail');
   await delay(900);
+  run('import', ['-window', 'root', 'docs/screenshot.png']);
   assert.ok(Date.now() - recordingStarted < 10_000, 'Character detail must appear with at least two seconds left in the recording');
   const visibleText = await main.evaluate('document.body.innerText');
   assert.match(visibleText, /electric|computer/i);

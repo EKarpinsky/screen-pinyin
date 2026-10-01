@@ -69,8 +69,6 @@ export function TranslationHistory({
         chinese: item.chinese,
         pinyin: item.pinyin,
         english: item.english,
-        x: 100,
-        y: 100,
       });
     }
   };
